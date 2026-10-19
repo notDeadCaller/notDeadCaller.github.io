@@ -389,7 +389,39 @@ function generative(rand: () => number): Piece {
 	};
 }
 
-const MOTIFS: Record<string, (rand: () => number) => Piece> = { eye, lattice, pulse, counter };
+/** CTF writeups: a flag on a pole, rippling in the wind. */
+function flag(rand: () => number): Piece {
+	const phase = rand() * 10;
+	return {
+		shader(x, y, f, out) {
+			const { u, v, cu, cv } = norm(x, y, f);
+			const t = f.time + phase;
+			const ar = f.cols / (f.rows * f.aspect);
+			const pole = -Math.min(ar * 0.55, 1.6);
+			const width = Math.min(ar * 1.1, 3);
+			const top = -0.6;
+			// the pole and its finial
+			if (Math.abs(u - pole) < cu * 0.6 && v > top - cv && v < 0.95) {
+				out.ch = v < top ? 'o' : '|';
+				out.a = 0.7;
+				out.tone = 7;
+				return;
+			}
+			const along = (u - pole) / width;
+			if (along <= 0 || along > 1) return;
+			// the cloth ripples more the further it is from the pole
+			const wave = Math.sin(along * 7 - t * 2.4) * 0.09 * along;
+			const fy = v - wave;
+			if (fy < top || fy > top + 0.75) return;
+			const shade = Math.cos(along * 7 - t * 2.4);
+			out.ch = shade > 0.5 ? '#' : shade > -0.2 ? '=' : shade > -0.7 ? '-' : '.';
+			out.a = 0.45 + 0.4 * (shade + 1) * 0.5;
+			out.tone = gradient(along);
+		},
+	};
+}
+
+const MOTIFS: Record<string, (rand: () => number) => Piece> = { eye, lattice, pulse, counter, flag };
 
 /** Cover art for a post or project. `motif` comes from frontmatter: a named motif or `glyph:<text>`. */
 export function cover(canvas: HTMLCanvasElement, seed: string, motif = '', options: { target?: Element | null; dissolve?: boolean } = {}) {

@@ -14,6 +14,13 @@ interface Props {
 const { post, headings, newer, older } = Astro.props;
 const { title, description, pubDate, updatedDate, tags } = post.data;
 const summary = 'summary' in post.data ? post.data.summary : undefined;
+const ctf = 'ctf' in post.data ? post.data.ctf : undefined;
+// difficulty as a four-step ASCII meter: [##--]
+const DIFFICULTY = ['easy', 'medium', 'hard', 'insane'];
+const meter = (level: string) => {
+	const n = DIFFICULTY.indexOf(level) + 1;
+	return `[${'#'.repeat(n)}${'-'.repeat(4 - n)}]`;
+};
 const toc = headings.filter((heading) => heading.depth === 2);
 const section = SECTIONS[post.collection];
 ---
@@ -32,6 +39,49 @@ const section = SECTIONS[post.collection];
 				<div><dt>Reading time</dt><dd>{readingMinutes(post.body)} min</dd></div>
 				{tags.length > 0 && <div><dt>Topics</dt><dd>{tags.join(', ')}</dd></div>}
 			</dl>
+			{
+				ctf && (
+					<section class="ctf" aria-label="Challenge">
+						<p class="ctf-event">
+							<span>CTF · {ctf.event}</span>
+							{ctf.result && <span class="ctf-result">{ctf.result}</span>}
+						</p>
+						{ctf.challenge && <p class="ctf-name">{ctf.challenge}</p>}
+						<dl class="ctf-stats">
+							<div>
+								<dt>Category</dt>
+								<dd>{ctf.category}</dd>
+							</div>
+							{ctf.points !== undefined && (
+								<div>
+									<dt>Points</dt>
+									<dd>{ctf.points}</dd>
+								</div>
+							)}
+							{ctf.solves !== undefined && (
+								<div>
+									<dt>Solves</dt>
+									<dd>{ctf.solves}</dd>
+								</div>
+							)}
+							{ctf.difficulty && (
+								<div>
+									<dt>Difficulty</dt>
+									<dd>
+										<span class="meter" aria-hidden="true">{meter(ctf.difficulty)}</span> {ctf.difficulty}
+									</dd>
+								</div>
+							)}
+						</dl>
+						{ctf.flag && (
+							<details class="flag">
+								<summary>Reveal flag</summary>
+								<code>{ctf.flag}</code>
+							</details>
+						)}
+					</section>
+				)
+			}
 			{
 				summary && (
 					<dl class="summary">
@@ -224,6 +274,89 @@ const section = SECTIONS[post.collection];
 	.summary dd {
 		margin: 0;
 		color: var(--text-strong);
+	}
+
+	/* CTF challenge card: same chamfered panel as the summary, with an event bar on top */
+	.ctf {
+		--cut: 1rem;
+		margin: 2rem 0 0;
+		padding: 1.1rem 1.5rem 1.25rem;
+		background: var(--bg-raised);
+		border-left: 2px solid var(--accent-2);
+		clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+	}
+
+	.ctf-event {
+		display: flex;
+		justify-content: space-between;
+		gap: 1rem;
+		margin: 0;
+		font: 0.75rem var(--font-mono);
+		color: var(--accent-2);
+	}
+
+	.ctf-result {
+		padding: 0 0.4rem;
+		color: var(--bg);
+		background: var(--accent);
+	}
+
+	.ctf-name {
+		margin: 0.4rem 0 0;
+		font: 700 1.6rem/1.15 var(--font-display);
+		color: var(--text-strong);
+	}
+
+	.ctf-stats {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem 2.25rem;
+		margin: 1rem 0 0;
+	}
+
+	.ctf-stats dt {
+		font: 0.6875rem var(--font-mono);
+		color: var(--muted);
+	}
+
+	.ctf-stats dd {
+		margin: 0.1rem 0 0;
+		color: var(--text-strong);
+		text-transform: capitalize;
+	}
+
+	.meter {
+		font-family: var(--font-mono);
+		color: var(--accent);
+	}
+
+	.flag {
+		margin-top: 1rem;
+		font: 0.875rem var(--font-mono);
+	}
+
+	.flag summary {
+		width: fit-content;
+		color: var(--muted);
+		cursor: pointer;
+		list-style: none;
+	}
+
+	.flag summary::before {
+		content: '> ';
+		color: var(--accent);
+	}
+
+	.flag[open] summary::before {
+		content: 'v ';
+	}
+
+	.flag code {
+		display: inline-block;
+		margin-top: 0.5rem;
+		padding: 0.25rem 0.6rem;
+		color: var(--bg);
+		background: var(--accent);
 	}
 
 	.toc {

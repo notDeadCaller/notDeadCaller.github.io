@@ -9,14 +9,29 @@ const post = z.object({
 	updatedDate: z.coerce.date().optional(),
 	tags: z.array(z.string()).default([]),
 	draft: z.boolean().default(false),
-	// cover motif: eye | lattice | pulse | counter | glyph:<any symbol or word>; omitted = seeded pattern
+	// cover motif: eye | lattice | pulse | counter | flag | glyph:<any symbol or word>; omitted = seeded pattern
 	art: z.string().optional(),
 });
 
 const writeups = defineCollection({
 	loader: glob({ base: './src/content/writeups', pattern: '**/*.{md,mdx}' }),
 	// `summary` renders as the key/value box at the top of a writeup: target, platform, difficulty, severity...
-	schema: post.extend({ summary: z.record(z.string(), z.string()).optional() }),
+	schema: post.extend({
+		summary: z.record(z.string(), z.string()).optional(),
+		// CTF solves get a challenge card; `flag` stays hidden until the reader reveals it
+		ctf: z
+			.object({
+				event: z.string(),
+				challenge: z.string().optional(),
+				category: z.string(),
+				points: z.number().optional(),
+				solves: z.number().optional(),
+				difficulty: z.enum(['easy', 'medium', 'hard', 'insane']).optional(),
+				result: z.string().optional(),
+				flag: z.string().optional(),
+			})
+			.optional(),
+	}),
 });
 
 const notes = defineCollection({

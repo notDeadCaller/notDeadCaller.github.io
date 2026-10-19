@@ -19,7 +19,7 @@ const { posts } = Astro.props;
 					</div>
 					<div class="feed-body">
 						<p class="feed-meta">
-							<span>{SECTIONS[post.collection].label}</span>
+							<span>{'ctf' in post.data && post.data.ctf ? `CTF · ${post.data.ctf.category}` : SECTIONS[post.collection].label}</span>
 							<time datetime={post.data.pubDate.toISOString()}>{isoDate(post.data.pubDate)}</time>
 							<span>{readingMinutes(post.body)} min</span>
 						</p>

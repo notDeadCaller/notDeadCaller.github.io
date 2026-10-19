@@ -647,6 +647,46 @@ img {
 	color: var(--muted);
 }
 
+/* <details> in a writeup folds away long tool output: click the summary to expand */
+.prose details {
+	margin: 1.5rem 0;
+	padding: 0.25rem 0 0.25rem 1rem;
+	border-left: 1px solid var(--line);
+}
+
+.prose details[open] {
+	border-left-color: var(--accent-2);
+}
+
+.prose summary {
+	width: fit-content;
+	font: 0.8125rem var(--font-mono);
+	color: var(--muted);
+	cursor: pointer;
+	list-style: none;
+}
+
+.prose summary::-webkit-details-marker {
+	display: none;
+}
+
+.prose summary::before {
+	content: '> ';
+	color: var(--accent);
+}
+
+.prose details[open] > summary::before {
+	content: 'v ';
+}
+
+.prose summary:hover {
+	color: var(--text-strong);
+}
+
+.prose details > :not(summary) {
+	margin-top: 0.75rem;
+}
+
 /* code frames are built at compile time by the shiki transformer in astro.config.mjs */
 .code-frame {
 	--cut: 0.9rem;
