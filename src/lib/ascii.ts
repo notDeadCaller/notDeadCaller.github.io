@@ -155,6 +155,8 @@ export function mount(canvas: HTMLCanvasElement, options: Options) {
 	let cellH = cell * 2;
 	let visible = false;
 	let raf = 0;
+	let drawRows = 0;
+	let restTop = 0;
 	let last = 0;
 	const start = performance.now();
 
@@ -172,8 +174,14 @@ export function mount(canvas: HTMLCanvasElement, options: Options) {
 		ctx.textBaseline = 'top';
 		tones = options.tones.map((tone) => resolveTone(tone, style));
 		field.cols = Math.ceil(canvas.clientWidth / cellW);
-		field.rows = Math.ceil(canvas.clientHeight / cellH);
+		// a dissolving canvas is taller than its box (see .spill): shaders lay out in the box,
+		// the extra rows only ever receive falling characters
+		const boxHeight = dissolve ? (canvas.parentElement?.clientHeight ?? canvas.clientHeight) : canvas.clientHeight;
+		field.rows = Math.ceil(boxHeight / cellH);
+		drawRows = Math.ceil(canvas.clientHeight / cellH);
 		field.aspect = cellH / cellW;
+		// where the box sits with the page at rest, so dissolving starts on the first scrolled pixel
+		restTop = Math.min(canvas.getBoundingClientRect().top + scrollY, innerHeight * 0.5);
 		setup?.(field);
 		draw();
 	};
@@ -181,23 +189,25 @@ export function mount(canvas: HTMLCanvasElement, options: Options) {
 	const draw = () => {
 		const rect = canvas.getBoundingClientRect();
 		const clamp = (n: number) => Math.min(1, Math.max(0, n));
-		field.scroll.past = clamp(-rect.top / rect.height);
-		field.scroll.seen = clamp((innerHeight - rect.top) / rect.height);
+		const boxHeight = field.rows * cellH;
+		field.scroll.past = clamp((restTop - rect.top) / boxHeight);
+		field.scroll.seen = clamp((innerHeight - rect.top) / boxHeight);
 		field.scroll.speed = currentScrollSpeed();
 		frame?.(field);
 
 		const fall = dissolve && !reduced ? field.scroll.past : 0;
 		ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
 		let current = -1;
-		for (let y = 0; y < field.rows; y++) {
+		const rows = fall > 0 ? drawRows : field.rows;
+		for (let y = 0; y < rows; y++) {
 			for (let x = 0; x < field.cols; x++) {
 				let sx = x;
 				let sy = y;
 				if (fall > 0) {
-					// each column drops at its own speed and drifts a little sideways
-					sy = Math.round(y - fall * fall * field.rows * (0.35 + columnHash(x, 1) * 1.65));
+					// each column drops at its own speed, out of the box and down behind the page
+					sy = Math.round(y - fall * field.rows * (0.35 + columnHash(x, 1) * 1.65) * 1.3);
 					sx = x + Math.round((columnHash(x, 2) - 0.5) * fall * 8);
-					if (sy < 0) continue;
+					if (sy < 0 || sy >= field.rows) continue;
 				}
 				out.ch = ' ';
 				out.a = 0;
@@ -208,7 +218,8 @@ export function mount(canvas: HTMLCanvasElement, options: Options) {
 					current = out.tone;
 					ctx.fillStyle = tones[current] ?? tones[0];
 				}
-				ctx.globalAlpha = Math.min(1, out.a * (1 - fall * 0.85));
+				// falling glyphs dim as they go, and dimmer still once they sink behind the page
+				ctx.globalAlpha = Math.min(1, out.a * (1 - fall * 0.9) * (y >= field.rows ? 0.35 : 1));
 				ctx.fillText(out.ch, x * cellW, y * cellH);
 			}
 		}
@@ -246,12 +257,28 @@ export function mount(canvas: HTMLCanvasElement, options: Options) {
 		field.pointer.active = false;
 	});
 
-	new IntersectionObserver(([entry]) => {
+	const seen = new IntersectionObserver(([entry]) => {
 		visible = entry.isIntersecting;
 		if (visible) play();
-	}).observe(canvas);
-	new ResizeObserver(resize).observe(canvas);
+	});
+	seen.observe(canvas);
+	const sized = new ResizeObserver(resize);
+	sized.observe(canvas);
 	// palette switches repaint with the new tones
-	new MutationObserver(resize).observe(document.documentElement, { attributeFilter: ['data-palette'] });
+	const themed = new MutationObserver(resize);
+	themed.observe(document.documentElement, { attributeFilter: ['data-palette'] });
 	document.fonts.ready.then(resize);
+
+	// the client router swaps pages in place: stop and let go before this canvas is thrown away
+	document.addEventListener(
+		'astro:before-swap',
+		() => {
+			visible = false;
+			cancelAnimationFrame(raf);
+			seen.disconnect();
+			sized.disconnect();
+			themed.disconnect();
+		},
+		{ once: true },
+	);
 }

@@ -28,14 +28,14 @@ function norm(x: number, y: number, f: Field) {
 }
 
 /** A word drawn out of characters: flowing fill, scanner lens under the cursor, click shockwave, row tears. */
-export function wordmark(canvas: HTMLCanvasElement, text: string, { cell = 9, glitch = 0.05 } = {}) {
+export function wordmark(canvas: HTMLCanvasElement, text: string, { cell = 9, glitch = 0.05, dissolve = false } = {}) {
 	const font = cssFont('--font-display');
 	const fill = text.replace(/\s/g, '');
 	document.fonts.load(`800 64px ${font}`, text).finally(() =>
 		mount(canvas, {
 			cell,
 			tones: TONES,
-			dissolve: true,
+			dissolve,
 			setup(field) {
 				// two lines whenever the box is tall enough, letters read better big
 				const wide = field.cols / (field.rows * field.aspect) > 4.5;

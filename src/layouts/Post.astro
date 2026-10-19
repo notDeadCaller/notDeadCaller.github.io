@@ -117,8 +117,11 @@ const section = SECTIONS[post.collection];
 	.post-art {
 		height: clamp(7rem, 16vw, 12rem);
 		margin-inline: calc(var(--gutter) * -1);
+		position: relative;
+	}
+
+	.post-art :global(canvas) {
 		opacity: 0.6;
-		mask-image: linear-gradient(to bottom, #000 30%, transparent);
 	}
 
 	.post {
@@ -301,15 +304,6 @@ const section = SECTIONS[post.collection];
 </style>
 
 <script>
-	for (const heading of document.querySelectorAll<HTMLElement>('.prose :is(h2, h3)[id]')) {
-		const anchor = document.createElement('a');
-		anchor.className = 'anchor';
-		anchor.href = `#${heading.id}`;
-		anchor.textContent = '#';
-		anchor.setAttribute('aria-label', `Link to ${heading.textContent}`);
-		heading.append(anchor);
-	}
-
 	document.addEventListener('click', async (event) => {
 		const button = (event.target as HTMLElement).closest<HTMLButtonElement>('.code-copy');
 		const code = button?.closest('.code-frame')?.querySelector('pre');
@@ -319,21 +313,33 @@ const section = SECTIONS[post.collection];
 		setTimeout(() => (button.textContent = 'Copy'), 1500);
 	});
 
-	const links = new Map(
-		[...document.querySelectorAll<HTMLAnchorElement>('.toc a')].map((link) => [decodeURIComponent(link.hash.slice(1)), link]),
-	);
-	const observer = new IntersectionObserver(
-		(entries) => {
-			for (const entry of entries) {
-				if (!entry.isIntersecting) continue;
-				for (const link of links.values()) link.removeAttribute('aria-current');
-				links.get(entry.target.id)?.setAttribute('aria-current', 'true');
-			}
-		},
-		{ rootMargin: '0px 0px -70% 0px' },
-	);
-	for (const id of links.keys()) {
-		const target = document.getElementById(id);
-		if (target) observer.observe(target);
-	}
+	document.addEventListener('astro:page-load', () => {
+		for (const heading of document.querySelectorAll<HTMLElement>('.prose :is(h2, h3)[id]')) {
+			const anchor = document.createElement('a');
+			anchor.className = 'anchor';
+			anchor.href = `#${heading.id}`;
+			anchor.textContent = '#';
+			anchor.setAttribute('aria-label', `Link to ${heading.textContent}`);
+			heading.append(anchor);
+		}
+
+
+		const links = new Map(
+			[...document.querySelectorAll<HTMLAnchorElement>('.toc a')].map((link) => [decodeURIComponent(link.hash.slice(1)), link]),
+		);
+		const observer = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					if (!entry.isIntersecting) continue;
+					for (const link of links.values()) link.removeAttribute('aria-current');
+					links.get(entry.target.id)?.setAttribute('aria-current', 'true');
+				}
+			},
+			{ rootMargin: '0px 0px -70% 0px' },
+		);
+		for (const id of links.keys()) {
+			const target = document.getElementById(id);
+			if (target) observer.observe(target);
+		}
+	});
 </script>

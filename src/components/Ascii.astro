@@ -14,7 +14,7 @@ const { art, text, seed, motif, dissolve, class: className } = Astro.props;
 ---
 
 <canvas
-	class:list={['ascii', className]}
+	class:list={['ascii', { spill: dissolve }, className]}
 	data-art={art}
 	data-text={text}
 	data-seed={seed}
@@ -25,13 +25,15 @@ const { art, text, seed, motif, dissolve, class: className } = Astro.props;
 <script>
 	import { cover, skyline, wordmark } from '../lib/art';
 
-	for (const canvas of document.querySelectorAll<HTMLCanvasElement>('canvas.ascii')) {
-		const { art, text = '', seed = '', motif = '' } = canvas.dataset;
-		if (art === 'wordmark') wordmark(canvas, text, { cell: innerWidth < 640 ? 4.5 : 6 });
-		else if (art === 'cover')
-			cover(canvas, seed, motif, { target: canvas.closest('a, li'), dissolve: 'dissolve' in canvas.dataset });
-		else if (art === 'skyline') skyline(canvas);
-	}
+	document.addEventListener('astro:page-load', () => {
+		for (const canvas of document.querySelectorAll<HTMLCanvasElement>('canvas.ascii')) {
+			const { art, text = '', seed = '', motif = '' } = canvas.dataset;
+			const dissolve = 'dissolve' in canvas.dataset;
+			if (art === 'wordmark') wordmark(canvas, text, { cell: innerWidth < 640 ? 4.5 : 6, dissolve });
+			else if (art === 'cover') cover(canvas, seed, motif, { target: canvas.closest('a, li'), dissolve });
+			else if (art === 'skyline') skyline(canvas);
+		}
+	});
 </script>
 
 <style>
@@ -40,5 +42,16 @@ const { art, text, seed, motif, dissolve, class: className } = Astro.props;
 		width: 100%;
 		height: 100%;
 		font-family: var(--font-mono);
+	}
+
+	/* dissolving art spills below its box and sinks behind the content that follows, fading out */
+	.spill {
+		position: absolute;
+		top: 0;
+		left: 0;
+		z-index: -1;
+		height: calc(100% + 60vh);
+		pointer-events: none;
+		mask-image: linear-gradient(to bottom, #000 calc(100% - 60vh), transparent);
 	}
 </style>

@@ -45,10 +45,6 @@
 	}
 }
 
-@view-transition {
-	navigation: auto;
-}
-
 /* base */
 
 *,
@@ -103,6 +99,19 @@ li {
 a {
 	color: var(--accent);
 	text-decoration-thickness: 1px;
+	text-underline-offset: 0.2em;
+}
+
+/* every link that lights up on hover also gets a thin cyan underline */
+a:is(:hover, :focus-visible):not(.wordmark, .skip, .feed a) {
+	text-decoration: underline;
+	text-decoration-color: color-mix(in srgb, var(--accent-2) 75%, transparent);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.28em;
+}
+
+.feed a:is(:hover, :focus-visible) h3 {
+	text-decoration: underline 1px color-mix(in srgb, var(--accent-2) 75%, transparent);
 	text-underline-offset: 0.2em;
 }
 
@@ -170,17 +179,66 @@ img {
 	border-bottom: 1px solid var(--line);
 }
 
+/* wordmark: a yellow highlight block wipes in on hover with a cyan misregistered copy,
+   and every few seconds the name tears for a frame or two (script in Base.astro) */
 .wordmark {
+	position: relative;
+	z-index: 0;
+	margin-left: -0.4rem;
+	padding: 0.05rem 0.4rem;
 	font-family: var(--font-display);
 	font-size: 1.2rem;
 	font-weight: 700;
 	letter-spacing: 0.01em;
 	color: var(--text-strong);
 	text-decoration: none;
+	transition: color 0.2s steps(3);
 }
 
-.wordmark:hover {
-	color: var(--accent);
+.wordmark::before,
+.wordmark::after {
+	content: '';
+	position: absolute;
+	z-index: -1;
+	pointer-events: none;
+}
+
+.wordmark::before {
+	inset: 0;
+	background: var(--accent);
+	clip-path: inset(0 100% 0 0);
+	transition: clip-path 0.25s steps(6);
+}
+
+.wordmark::after {
+	right: -4px;
+	bottom: -4px;
+	width: 7px;
+	height: 7px;
+	background: var(--accent-2);
+	clip-path: polygon(100% 0, 100% 100%, 0 100%);
+	opacity: 0;
+	transition: opacity 0.2s;
+}
+
+.wordmark:is(:hover, :focus-visible) {
+	color: var(--bg);
+	text-shadow: 2px 0 color-mix(in srgb, var(--accent-2) 70%, transparent);
+}
+
+.wordmark:is(:hover, :focus-visible)::before {
+	clip-path: inset(0);
+}
+
+.wordmark:is(:hover, :focus-visible)::after {
+	opacity: 1;
+}
+
+.wordmark.is-glitching {
+	text-shadow:
+		-2px 0 var(--hot),
+		2px 0 var(--accent-2);
+	transform: translateX(1px) skewX(-6deg);
 }
 
 .site-header nav {
@@ -212,6 +270,12 @@ img {
 	background: var(--accent);
 }
 
+.header-end {
+	display: flex;
+	align-items: center;
+	gap: 1.25rem;
+}
+
 .clock {
 	margin: 0;
 	font: 0.75rem var(--font-mono);
@@ -235,8 +299,13 @@ img {
 		bottom: -0.55rem;
 	}
 
-	.clock {
+	.header-end {
 		margin-left: auto;
+		gap: 0.75rem;
+	}
+
+	.clock span {
+		display: none;
 	}
 }
 
@@ -620,9 +689,5 @@ img {
 	*::after {
 		animation: none !important;
 		transition: none !important;
-	}
-
-	@view-transition {
-		navigation: none;
 	}
 }

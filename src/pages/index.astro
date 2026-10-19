@@ -15,14 +15,13 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 <Base>
 	<section class="hero">
 		<h1 class="sr-only">{SITE.title}</h1>
-		<div class="hero-art"><Ascii art="wordmark" text={SITE.title} /></div>
-		<p class="hint" aria-hidden="true">Move the cursor over the name. Click it.</p>
+		<div class="hero-art"><Ascii art="wordmark" text={SITE.title} dissolve /></div>
 	</section>
 
 	<section class="intro">
 		<p class="intro-lead">
-			I'm Avishek, a security researcher and developer in Kolkata. I test web applications for a living and build
-			software on the side.
+			I'm Avishek, a cybersec undergrad and systems developer based out of Kolkata, testing and probing sh*t worth
+			looking into.
 		</p>
 		<ul class="intro-links">
 			<li><a href="/writeups/">Read the writeups</a></li>
@@ -59,21 +58,9 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 	}
 
 	.hero-art {
+		position: relative;
 		height: clamp(15rem, 42vw, 34rem);
 		cursor: crosshair;
-	}
-
-	.hint {
-		margin: 0 var(--gutter);
-		font: 0.75rem var(--font-mono);
-		color: var(--muted);
-		text-align: right;
-	}
-
-	@media (hover: none) {
-		.hint {
-			display: none;
-		}
 	}
 
 	.intro {

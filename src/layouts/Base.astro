@@ -1,7 +1,9 @@
 ---
 import { Font } from 'astro:assets';
+import { ClientRouter } from 'astro:transitions';
 import '../styles/main.css';
 import Ascii from '../components/Ascii.astro';
+import Music from '../components/Music.astro';
 import { NAV, SITE, SOCIALS } from '../site';
 
 interface Props {
@@ -34,6 +36,7 @@ const section = `/${Astro.url.pathname.split('/')[1] ?? ''}/`;
 		<meta property="og:title" content={pageTitle} />
 		<meta property="og:description" content={description} />
 		<meta name="twitter:card" content="summary" />
+		<ClientRouter />
 		<Font cssVariable="--font-shoulders" preload />
 		<Font cssVariable="--font-serif" preload />
 		<Font cssVariable="--font-fragment" preload />
@@ -55,11 +58,14 @@ const section = `/${Astro.url.pathname.split('/')[1] ?? ''}/`;
 	<body>
 		<a class="skip" href="#main">Skip to content</a>
 		<header class="site-header">
-			<a class="wordmark" href="/" aria-label={`${SITE.title}, home`}>{SITE.title}</a>
+			<a class="wordmark" href="/" aria-label={`${SITE.title}, home`}><span data-wordmark>{SITE.title}</span></a>
 			<nav aria-label="Main">
 				{NAV.map(({ href, label }) => <a href={href} aria-current={section === href ? 'page' : undefined}>{label}</a>)}
 			</nav>
-			<p class="clock" aria-label="Local time in Kolkata"><span>Kolkata</span> <time data-clock>--:--</time></p>
+			<div class="header-end">
+				<Music />
+				<p class="clock" aria-label="Local time in Kolkata"><span>Kolkata</span> <time data-clock>--:--</time></p>
+			</div>
 		</header>
 		<main id="main">
 			<slot />
@@ -87,43 +93,70 @@ const section = `/${Astro.url.pathname.split('/')[1] ?? ''}/`;
 		</div>
 		)}
 		<script>
-			for (const button of document.querySelectorAll<HTMLButtonElement>('[data-pick]')) {
-				button.addEventListener('click', () => {
-					const { key = '', pick = '' } = button.dataset;
-					try {
-						localStorage.setItem(key, pick);
-					} catch {}
-					// the ASCII wordmark samples the display font once, so a type switch reloads
-					if (key === 'type') location.reload();
-					else document.documentElement.dataset[key] = pick;
-				});
-			}
+			const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+			const NOISE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+			const scramble = (text: string, shown: number) =>
+				text.slice(0, shown) +
+				[...text.slice(shown)].map((ch) => (ch === ' ' ? ' ' : NOISE[Math.floor(Math.random() * NOISE.length)])).join('');
 
-			// titles marked data-decode resolve from noise once, left to right
-			if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-				const glyphs = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+			/** Resolve an element's text from noise, left to right. */
+			const decode = (el: HTMLElement, final: string, ms: number) => {
+				const start = performance.now();
+				const step = (now: number) => {
+					const progress = Math.min(1, (now - start) / ms);
+					el.textContent = scramble(final, Math.floor(final.length * progress));
+					if (progress < 1) requestAnimationFrame(step);
+				};
+				requestAnimationFrame(step);
+			};
+
+			// the client router swaps the page without reloading, so per-page setup runs on every page-load
+			document.addEventListener('astro:page-load', () => {
+				for (const button of document.querySelectorAll<HTMLButtonElement>('[data-pick]')) {
+					button.addEventListener('click', () => {
+						const { key = '', pick = '' } = button.dataset;
+						try {
+							localStorage.setItem(key, pick);
+						} catch {}
+						// the ASCII wordmark samples the display font once, so a type switch reloads
+						if (key === 'type') location.reload();
+						else document.documentElement.dataset[key] = pick;
+					});
+				}
+
+				if (reduced) return;
 				for (const el of document.querySelectorAll<HTMLElement>('[data-decode]')) {
 					const final = el.textContent ?? '';
 					el.setAttribute('aria-label', final);
-					const start = performance.now();
-					const step = (now: number) => {
-						const progress = Math.min(1, (now - start) / 650);
-						const shown = Math.floor(final.length * progress);
-						el.textContent =
-							final.slice(0, shown) +
-							[...final.slice(shown)].map((ch) => (ch === ' ' ? ' ' : glyphs[Math.floor(Math.random() * glyphs.length)])).join('');
-						if (progress < 1) requestAnimationFrame(step);
-					};
-					requestAnimationFrame(step);
+					decode(el, final, 650);
 				}
-			}
 
-			const clock = document.querySelector('[data-clock]');
+				// header wordmark: decodes on hover, and every so often tears for a few frames
+				const mark = document.querySelector<HTMLElement>('[data-wordmark]');
+				if (!mark) return;
+				const final = mark.textContent ?? '';
+				const link = mark.parentElement as HTMLElement;
+				link.addEventListener('pointerenter', () => decode(mark, final, 320));
+				const glitch = () => {
+					if (!mark.isConnected) return;
+					link.classList.add('is-glitching');
+					const i = Math.floor(Math.random() * final.length);
+					mark.textContent = final.slice(0, i) + NOISE[Math.floor(Math.random() * NOISE.length)] + final.slice(i + 1);
+					setTimeout(() => {
+						link.classList.remove('is-glitching');
+						mark.textContent = final;
+						setTimeout(glitch, 5000 + Math.random() * 7000);
+					}, 140);
+				};
+				setTimeout(glitch, 2500);
+			});
+
 			const format = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' });
 			const tick = () => {
+				const clock = document.querySelector('[data-clock]');
 				if (clock) clock.textContent = format.format(new Date());
 			};
-			tick();
+			document.addEventListener('astro:page-load', tick);
 			setInterval(tick, 15000);
 		</script>
 		<style>
