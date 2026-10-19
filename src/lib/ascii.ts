@@ -190,8 +190,8 @@ export function mount(canvas: HTMLCanvasElement, options: Options) {
 		const rect = canvas.getBoundingClientRect();
 		const clamp = (n: number) => Math.min(1, Math.max(0, n));
 		const boxHeight = field.rows * cellH;
-		// the first 15% of the box scrolls by untouched, then the dissolve takes over
-		field.scroll.past = clamp((restTop - rect.top - boxHeight * 0.15) / (boxHeight * 0.85));
+		// the first 10% of the box scrolls by untouched, then the dissolve takes over
+		field.scroll.past = clamp((restTop - rect.top - boxHeight * 0.1) / (boxHeight * 0.9));
 		field.scroll.seen = clamp((innerHeight - rect.top) / boxHeight);
 		field.scroll.speed = currentScrollSpeed();
 		frame?.(field);

@@ -390,16 +390,36 @@ export function cover(canvas: HTMLCanvasElement, seed: string, motif = '', optio
 
 // ── footer ────────────────────────────────────────────────────────────────
 
-/** Kolkata at night: skyline, Howrah Bridge, the Hooghly reflecting it all. Windows light up as it scrolls into view. */
+// boats on the Hooghly: cabin row above the hull row; ':' marks lit windows, '*' a lantern
+const BOATS = [
+	{ sprite: [' [:::] ', '\\_____/'], speed: 2.2, offset: 0.15 },
+	{ sprite: [' *| ', '\\__/'], speed: -1.4, offset: 0.6 },
+	{ sprite: ['  [::]  ', '\\______/'], speed: 1.1, offset: 0.85 },
+];
+
+// a crescent opening to the right, small enough to sit above the skyline
+const MOON = [' ,-.', '(   ', " `-'"];
+
+/** Where along a lane the nearest car is: 0 at its headlight, growing along its light trail. */
+function trail(x: number, t: number, speed: number, spacing: number, offset: number) {
+	const head = t * speed + offset;
+	const d = speed > 0 ? head - x : x - head;
+	return ((d % spacing) + spacing) % spacing;
+}
+
+/**
+ * Kolkata at night: skyline, Howrah Bridge with traffic, boats crossing the Hooghly,
+ * the city's lights rippling in the water. Windows light up as it scrolls into view.
+ */
 export function skyline(canvas: HTMLCanvasElement) {
 	type City = { hy: number; heights: Int16Array; edges: Uint8Array; towers: Uint8Array; bx0: number; bx1: number; ta: number; tb: number; towerH: number };
 	mount(canvas, {
 		cell: innerWidth < 640 ? 4.5 : 5.5,
 		tones: TONES,
-		fps: 15,
+		fps: 30,
 		setup(f) {
 			const rand = seeded('kolkata');
-			const hy = Math.floor(f.rows * 0.64);
+			const hy = Math.floor(f.rows * 0.6);
 			const heights = new Int16Array(f.cols);
 			const edges = new Uint8Array(f.cols);
 			const towers = new Uint8Array(f.cols);
@@ -422,12 +442,13 @@ export function skyline(canvas: HTMLCanvasElement) {
 		shader(x, y, f, out) {
 			const c = f.data.city as City;
 			const t = f.time;
-			const lit = 0.1 + f.scroll.seen * 0.55;
+			const lit = 0.3 + f.scroll.seen * 0.3;
+			const moonX = f.cols * 0.12;
 
-			const city = (cx: number, cy: number) => {
+			// what the city looks like at (cx, cy); the returned kind lets the river decide what to mirror
+			const city = (cx: number, cy: number): string => {
 				const h = c.hy - cy;
-				if (cx < 0 || cx >= f.cols || h < 1) return;
-				// Howrah Bridge: cantilever towers, a top chord that dips toward the middle, a truss down to the deck
+				if (cx < 0 || cx >= f.cols || h < 1) return '';
 				if (cx >= c.bx0 && cx <= c.bx1) {
 					const chord =
 						cx < c.ta
@@ -436,21 +457,33 @@ export function skyline(canvas: HTMLCanvasElement) {
 								? 2 + ((c.towerH - 2) * (c.bx1 - cx)) / (c.bx1 - c.tb)
 								: c.towerH - c.towerH * 0.45 * Math.sin((Math.PI * (cx - c.ta)) / (c.tb - c.ta));
 					out.tone = gradient((cx - c.bx0) / (c.bx1 - c.bx0));
+					// traffic crossing the deck: yellow headlights one way, red tail-lights the other
+					if (h === 3 && cx > c.bx0 && cx < c.bx1) {
+						const east = trail(cx, t, 6, 11, 0);
+						const west = trail(cx, t, -4.5, 17, 5);
+						if (east < 3 || west < 3) {
+							const d = Math.min(east, west);
+							out.ch = d < 1 ? '*' : '-';
+							out.a = d < 1 ? 1 : 0.55 - d * 0.12;
+							out.tone = east <= west ? 1 : 6;
+							return 'car';
+						}
+					}
 					if ((cx === c.ta || cx === c.tb) && h <= c.towerH) {
 						out.ch = '|';
 						out.a = 0.8;
 					} else if (Math.abs(h - chord) < 0.55) {
-						const next = cx < c.ta ? 1 : cx > c.tb ? -1 : cx < (c.ta + c.tb) / 2 ? -1 : 1;
-						out.ch = next > 0 ? '/' : '\\';
+						const rising = cx < c.ta || (cx > (c.ta + c.tb) / 2 && cx <= c.tb);
+						out.ch = rising ? '/' : '\\';
 						out.a = 0.75;
 					} else if (h === 2) {
 						out.ch = '=';
 						out.a = 0.7;
-					} else if (h > 2 && h < chord) {
-						out.ch = (cx + h) % 3 === 0 ? '/' : (cx - h) % 3 === 0 ? '\\' : ' ';
+					} else if (h > 3 && h < chord && ((cx + h) % 3 === 0 || (cx - h) % 3 === 0)) {
+						out.ch = (cx + h) % 3 === 0 ? '/' : '\\';
 						out.a = 0.3;
 					}
-					return;
+					return out.a > 0 ? 'bridge' : '';
 				}
 				const top = c.heights[cx];
 				if (h <= top) {
@@ -458,36 +491,41 @@ export function skyline(canvas: HTMLCanvasElement) {
 						out.ch = '_';
 						out.a = 0.35;
 						out.tone = 0;
-					} else if (c.edges[cx]) {
+						return 'roof';
+					}
+					if (c.edges[cx]) {
 						out.ch = '|';
 						out.a = 0.18;
 						out.tone = 0;
-					} else if (cx % 2 === 0 && h % 2 === 1) {
-						const on = hash(cx, cy) < lit && hash(cx, cy + Math.floor(t * 0.3)) > 0.04;
+						return 'wall';
+					}
+					if (cx % 2 === 0 && h % 2 === 1) {
+						// windows switch on and off slowly, a few at a time
+						const on = hash(cx, cy) < lit && hash(cx, cy + Math.floor(t * 0.12 + hash(cy, cx) * 9)) > 0.08;
 						out.ch = '.';
 						out.a = on ? 0.9 : 0.12;
 						out.tone = on ? (hash(cy, cx) < 0.6 ? 1 : 5) : 0;
+						return on ? 'window' : 'dark';
 					}
-					return;
+					return '';
 				}
 				if (c.towers[cx] && h <= top + 2) {
 					const beacon = h === top + 2;
 					out.ch = beacon ? '.' : '|';
 					out.a = beacon ? (Math.sin(t * 3) > 0 ? 1 : 0.2) : 0.35;
 					out.tone = beacon ? 6 : 0;
+					return 'tower';
 				}
+				return '';
 			};
 
 			if (y < c.hy) {
-				city(x, y);
-				if (out.a > 0) return;
+				if (city(x, y)) return;
 				// a thin moon and a few stars
-				const moon = Math.max(1.5, f.rows * 0.12);
-				const mu = (x - f.cols * 0.12) / (moon * f.aspect);
-				const mv = (y - f.rows * 0.22) / moon;
-				if (Math.hypot(mu, mv) < 1 && Math.hypot(mu - 0.45, mv + 0.15) > 0.9) {
-					out.ch = '#';
-					out.a = 0.55;
+				const mch = MOON[y - Math.floor(f.rows * 0.1)]?.[x - Math.floor(moonX) + 1];
+				if (mch && mch !== ' ') {
+					out.ch = mch;
+					out.a = 0.7;
 					out.tone = 7;
 				} else if (hash(x, y) < 0.012 && y < c.hy * 0.6) {
 					out.ch = '.';
@@ -496,18 +534,84 @@ export function skyline(canvas: HTMLCanvasElement) {
 				}
 				return;
 			}
+
+			// the riverside road along the waterline, with its own traffic
 			if (y === c.hy) {
-				out.ch = '-';
-				out.a = 0.2;
+				const east = trail(x, t, 9, 23, 3);
+				const west = trail(x, t, -7, 31, 11);
+				if (east < 4 || west < 4) {
+					const d = Math.min(east, west);
+					out.ch = d < 1 ? '*' : '-';
+					out.a = d < 1 ? 0.9 : 0.45 - d * 0.1;
+					out.tone = east <= west ? 1 : 6;
+					return;
+				}
+				out.ch = '_';
+				out.a = 0.18;
 				return;
 			}
-			// the river: the city mirrored, rippling
+
 			const depth = y - c.hy;
-			city(x + Math.round(Math.sin(depth * 1.3 + t * 1.6 + x * 0.07)), c.hy - depth);
-			if (out.a > 0 && out.ch !== ' ') {
-				out.ch = out.ch === '.' ? '-' : '~';
-				out.a *= 0.4 * (1 - depth / (f.rows - c.hy + 1));
-			} else out.a = 0;
+			const deep = f.rows - c.hy;
+
+			// boats: cabin on the first water row, hull on the second
+			const row = depth - 1;
+			if (row <= 1) {
+				for (const boat of BOATS) {
+					const w = boat.sprite[1].length;
+					const lane = f.cols + w * 2;
+					const x0 = Math.floor((((t * boat.speed + boat.offset * lane) % lane) + lane) % lane) - w;
+					const ch = boat.sprite[row][x - x0];
+					if (!ch || ch === ' ') continue;
+					out.ch = ch;
+					if (ch === ':') {
+						out.a = 0.95;
+						out.tone = 1;
+					} else if (ch === '*') {
+						out.a = Math.sin(t * 2.5 + boat.offset * 10) > -0.3 ? 1 : 0.4;
+						out.tone = 6;
+					} else {
+						out.a = 0.6;
+						out.tone = 7;
+					}
+					return;
+				}
+			}
+
+			// reflections: lit windows stretch into broken vertical streaks that ripple sideways
+			const ripple = Math.round(Math.sin(depth * 1.7 + t * 1.3 + x * 0.05) * (0.5 + depth * 0.25));
+			const source = city(x + ripple, c.hy - depth);
+			if ((source === 'window' || source === 'car') && hash(x, y + Math.floor(t * 5)) < 0.7) {
+				out.ch = depth % 2 ? '|' : ':';
+				out.a *= 0.45 * (1 - depth / (deep + 1));
+				return;
+			}
+			if (source === 'bridge' || source === 'tower') {
+				out.ch = '~';
+				out.a *= 0.3 * (1 - depth / (deep + 1));
+				return;
+			}
+			out.a = 0;
+
+			// moonlight glitter widening toward the viewer
+			if (Math.abs(x - moonX) < 1 + depth * 0.8 && hash(x + Math.floor(t * 3), y) < 0.3) {
+				out.ch = '-';
+				out.a = 0.35;
+				out.tone = 7;
+				return;
+			}
+
+			// slow swell across the open water
+			const swell = Math.sin(x * 0.33 + depth * 2.1 - t * 1.1) + Math.sin(x * 0.12 - t * 0.55 + depth);
+			if (swell > 1.25) {
+				out.ch = '~';
+				out.a = 0.16;
+				out.tone = 5;
+			} else if (swell > 0.95) {
+				out.ch = '-';
+				out.a = 0.08;
+				out.tone = 5;
+			}
 		},
 	});
 }
