@@ -392,13 +392,17 @@ export function cover(canvas: HTMLCanvasElement, seed: string, motif = '', optio
 
 // boats on the Hooghly: cabin row above the hull row; ':' marks lit windows, '*' a lantern
 const BOATS = [
-	{ sprite: [' [:::] ', '\\_____/'], speed: 2.2, offset: 0.15 },
-	{ sprite: [' *| ', '\\__/'], speed: -1.4, offset: 0.6 },
-	{ sprite: ['  [::]  ', '\\______/'], speed: 1.1, offset: 0.85 },
+	{ sprite: [' [:::] ', '\\_____/'], speed: 0.7, offset: 0.15 },
+	{ sprite: [' *| ', '\\__/'], speed: -0.45, offset: 0.6 },
+	{ sprite: ['  [::]  ', '\\______/'], speed: 0.35, offset: 0.85 },
 ];
 
-// a crescent opening to the right, small enough to sit above the skyline
-const MOON = [' ,-.', '(   ', " `-'"];
+/** A car at this point of its lane: a faint glint with a short trail, kept quiet on purpose. */
+function car(d: number, out: Glyph, eastbound: boolean) {
+	out.ch = d < 1 ? '-' : '.';
+	out.a = (d < 1 ? 0.5 : 0.18) * (eastbound ? 1 : 0.75);
+	out.tone = eastbound ? 7 : 6;
+}
 
 /** Where along a lane the nearest car is: 0 at its headlight, growing along its light trail. */
 function trail(x: number, t: number, speed: number, spacing: number, offset: number) {
@@ -457,15 +461,12 @@ export function skyline(canvas: HTMLCanvasElement) {
 								? 2 + ((c.towerH - 2) * (c.bx1 - cx)) / (c.bx1 - c.tb)
 								: c.towerH - c.towerH * 0.45 * Math.sin((Math.PI * (cx - c.ta)) / (c.tb - c.ta));
 					out.tone = gradient((cx - c.bx0) / (c.bx1 - c.bx0));
-					// traffic crossing the deck: yellow headlights one way, red tail-lights the other
+					// light traffic crossing the deck: pale headlights one way, dim tail-lights the other
 					if (h === 3 && cx > c.bx0 && cx < c.bx1) {
-						const east = trail(cx, t, 6, 11, 0);
-						const west = trail(cx, t, -4.5, 17, 5);
-						if (east < 3 || west < 3) {
-							const d = Math.min(east, west);
-							out.ch = d < 1 ? '*' : '-';
-							out.a = d < 1 ? 1 : 0.55 - d * 0.12;
-							out.tone = east <= west ? 1 : 6;
+						const east = trail(cx, t, 2.4, 29, 0);
+						const west = trail(cx, t, -1.8, 37, 9);
+						if (east < 2 || west < 2) {
+							car(Math.min(east, west), out, east <= west);
 							return 'car';
 						}
 					}
@@ -512,7 +513,7 @@ export function skyline(canvas: HTMLCanvasElement) {
 				if (c.towers[cx] && h <= top + 2) {
 					const beacon = h === top + 2;
 					out.ch = beacon ? '.' : '|';
-					out.a = beacon ? (Math.sin(t * 3) > 0 ? 1 : 0.2) : 0.35;
+					out.a = beacon ? 0.45 + 0.35 * Math.sin(t * 1.2) : 0.35;
 					out.tone = beacon ? 6 : 0;
 					return 'tower';
 				}
@@ -522,10 +523,12 @@ export function skyline(canvas: HTMLCanvasElement) {
 			if (y < c.hy) {
 				if (city(x, y)) return;
 				// a thin moon and a few stars
-				const mch = MOON[y - Math.floor(f.rows * 0.1)]?.[x - Math.floor(moonX) + 1];
-				if (mch && mch !== ' ') {
-					out.ch = mch;
-					out.a = 0.7;
+				const moon = Math.max(1.5, f.rows * 0.12);
+				const mu = (x - moonX) / (moon * f.aspect);
+				const mv = (y - f.rows * 0.22) / moon;
+				if (Math.hypot(mu, mv) < 1 && Math.hypot(mu - 0.45, mv + 0.15) > 0.9) {
+					out.ch = '#';
+					out.a = 0.55;
 					out.tone = 7;
 				} else if (hash(x, y) < 0.012 && y < c.hy * 0.6) {
 					out.ch = '.';
@@ -537,13 +540,10 @@ export function skyline(canvas: HTMLCanvasElement) {
 
 			// the riverside road along the waterline, with its own traffic
 			if (y === c.hy) {
-				const east = trail(x, t, 9, 23, 3);
-				const west = trail(x, t, -7, 31, 11);
-				if (east < 4 || west < 4) {
-					const d = Math.min(east, west);
-					out.ch = d < 1 ? '*' : '-';
-					out.a = d < 1 ? 0.9 : 0.45 - d * 0.1;
-					out.tone = east <= west ? 1 : 6;
+				const east = trail(x, t, 3, 47, 3);
+				const west = trail(x, t, -2.4, 61, 20);
+				if (east < 2 || west < 2) {
+					car(Math.min(east, west), out, east <= west);
 					return;
 				}
 				out.ch = '_';
@@ -565,13 +565,13 @@ export function skyline(canvas: HTMLCanvasElement) {
 					if (!ch || ch === ' ') continue;
 					out.ch = ch;
 					if (ch === ':') {
-						out.a = 0.95;
+						out.a = 0.5;
 						out.tone = 1;
 					} else if (ch === '*') {
-						out.a = Math.sin(t * 2.5 + boat.offset * 10) > -0.3 ? 1 : 0.4;
-						out.tone = 6;
+						out.a = 0.45 + 0.15 * Math.sin(t * 0.8 + boat.offset * 10);
+						out.tone = 1;
 					} else {
-						out.a = 0.6;
+						out.a = 0.3;
 						out.tone = 7;
 					}
 					return;
@@ -579,37 +579,37 @@ export function skyline(canvas: HTMLCanvasElement) {
 			}
 
 			// reflections: lit windows stretch into broken vertical streaks that ripple sideways
-			const ripple = Math.round(Math.sin(depth * 1.7 + t * 1.3 + x * 0.05) * (0.5 + depth * 0.25));
+			const ripple = Math.round(Math.sin(depth * 1.7 + t * 0.6 + x * 0.05) * (0.4 + depth * 0.15));
 			const source = city(x + ripple, c.hy - depth);
-			if ((source === 'window' || source === 'car') && hash(x, y + Math.floor(t * 5)) < 0.7) {
+			if (source === 'window' && hash(x, y + Math.floor(t * 1.2)) < 0.85) {
 				out.ch = depth % 2 ? '|' : ':';
-				out.a *= 0.45 * (1 - depth / (deep + 1));
+				out.a *= 0.25 * (1 - depth / (deep + 1));
 				return;
 			}
 			if (source === 'bridge' || source === 'tower') {
 				out.ch = '~';
-				out.a *= 0.3 * (1 - depth / (deep + 1));
+				out.a *= 0.18 * (1 - depth / (deep + 1));
 				return;
 			}
 			out.a = 0;
 
 			// moonlight glitter widening toward the viewer
-			if (Math.abs(x - moonX) < 1 + depth * 0.8 && hash(x + Math.floor(t * 3), y) < 0.3) {
+			if (Math.abs(x - moonX) < 1 + depth * 0.8 && hash(x + Math.floor(t * 1.2), y) < 0.22) {
 				out.ch = '-';
-				out.a = 0.35;
+				out.a = 0.2;
 				out.tone = 7;
 				return;
 			}
 
 			// slow swell across the open water
-			const swell = Math.sin(x * 0.33 + depth * 2.1 - t * 1.1) + Math.sin(x * 0.12 - t * 0.55 + depth);
-			if (swell > 1.25) {
+			const swell = Math.sin(x * 0.33 + depth * 2.1 - t * 0.45) + Math.sin(x * 0.12 - t * 0.25 + depth);
+			if (swell > 1.3) {
 				out.ch = '~';
-				out.a = 0.16;
+				out.a = 0.1;
 				out.tone = 5;
-			} else if (swell > 0.95) {
+			} else if (swell > 1.05) {
 				out.ch = '-';
-				out.a = 0.08;
+				out.a = 0.05;
 				out.tone = 5;
 			}
 		},
