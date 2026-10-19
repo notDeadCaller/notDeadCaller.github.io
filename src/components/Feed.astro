@@ -1,0 +1,33 @@
+---
+import { isoDate, type Post, postUrl, readingMinutes, SECTIONS } from '../site';
+import Ascii from './Ascii.astro';
+
+interface Props {
+	posts: Post[];
+}
+
+const { posts } = Astro.props;
+---
+
+<ol class="feed">
+	{
+		posts.map((post) => (
+			<li>
+				<a href={postUrl(post)}>
+					<div class="feed-art">
+						<Ascii art="cover" seed={post.id} motif={post.data.art} />
+					</div>
+					<div class="feed-body">
+						<p class="feed-meta">
+							<span>{SECTIONS[post.collection].label}</span>
+							<time datetime={post.data.pubDate.toISOString()}>{isoDate(post.data.pubDate)}</time>
+							<span>{readingMinutes(post.body)} min</span>
+						</p>
+						<h3>{post.data.title}</h3>
+						<p class="feed-desc">{post.data.description}</p>
+					</div>
+				</a>
+			</li>
+		))
+	}
+</ol>

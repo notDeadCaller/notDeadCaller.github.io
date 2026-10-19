@@ -1,0 +1,339 @@
+---
+import type { MarkdownHeading } from 'astro';
+import Ascii from '../components/Ascii.astro';
+import { isoDate, type Post, postUrl, readingMinutes, SECTIONS } from '../site';
+import Base from './Base.astro';
+
+interface Props {
+	post: Post;
+	headings: MarkdownHeading[];
+	newer?: Post;
+	older?: Post;
+}
+
+const { post, headings, newer, older } = Astro.props;
+const { title, description, pubDate, updatedDate, tags } = post.data;
+const summary = 'summary' in post.data ? post.data.summary : undefined;
+const toc = headings.filter((heading) => heading.depth === 2);
+const section = SECTIONS[post.collection];
+---
+
+<Base title={title} description={description} type="article">
+	<div class="progress" aria-hidden="true"></div>
+	<div class="post-art"><Ascii art="cover" seed={post.id} motif={post.data.art} dissolve /></div>
+	<article class:list={['post', { 'has-toc': toc.length > 2 }]}>
+		<header class="post-head">
+			<p class="kicker"><a href={`/${post.collection}/`}>{section.title}</a></p>
+			<h1 data-decode>{title}</h1>
+			<p class="lede">{description}</p>
+			<dl class="facts">
+				<div><dt>Published</dt><dd><time datetime={pubDate.toISOString()}>{isoDate(pubDate)}</time></dd></div>
+				{updatedDate && <div><dt>Updated</dt><dd>{isoDate(updatedDate)}</dd></div>}
+				<div><dt>Reading time</dt><dd>{readingMinutes(post.body)} min</dd></div>
+				{tags.length > 0 && <div><dt>Topics</dt><dd>{tags.join(', ')}</dd></div>}
+			</dl>
+			{
+				summary && (
+					<dl class="summary">
+						{Object.entries(summary).map(([key, value]) => (
+							<div>
+								<dt>{key}</dt>
+								<dd>{value}</dd>
+							</div>
+						))}
+					</dl>
+				)
+			}
+		</header>
+
+		{
+			toc.length > 2 && (
+				<nav class="toc" aria-label="On this page">
+					<p>On this page</p>
+					<ol>
+						{toc.map((heading) => (
+							<li>
+								<a href={`#${heading.slug}`}>{heading.text}</a>
+							</li>
+						))}
+					</ol>
+				</nav>
+			)
+		}
+
+		<div class="prose">
+			<slot />
+		</div>
+
+		<footer class="post-foot">
+			<nav class="pager" aria-label="More posts">
+				{
+					older && (
+						<a href={postUrl(older)} rel="prev">
+							<span>Previous</span>
+							{older.data.title}
+						</a>
+					)
+				}
+				{
+					newer && (
+						<a href={postUrl(newer)} rel="next" class="next">
+							<span>Next</span>
+							{newer.data.title}
+						</a>
+					)
+				}
+			</nav>
+			<p><a href={`/${post.collection}/`}>All {section.title.toLowerCase()}</a></p>
+		</footer>
+	</article>
+</Base>
+
+<style>
+	.progress {
+		position: fixed;
+		inset: 0 0 auto;
+		z-index: 20;
+		height: 2px;
+		background: linear-gradient(90deg, var(--accent), var(--accent-2));
+		transform-origin: 0 50%;
+		transform: scaleX(0);
+		animation: grow linear both;
+		animation-timeline: scroll(root);
+	}
+
+	@keyframes grow {
+		to {
+			transform: scaleX(1);
+		}
+	}
+
+	@supports not (animation-timeline: scroll()) {
+		.progress {
+			display: none;
+		}
+	}
+
+	.post-art {
+		height: clamp(7rem, 16vw, 12rem);
+		margin-inline: calc(var(--gutter) * -1);
+		opacity: 0.6;
+		mask-image: linear-gradient(to bottom, #000 30%, transparent);
+	}
+
+	.post {
+		display: grid;
+		grid-template-columns: minmax(0, var(--measure));
+		justify-content: center;
+		column-gap: 5rem;
+	}
+
+	@media (min-width: 75em) {
+		.post.has-toc {
+			grid-template-columns: 13rem minmax(0, var(--measure));
+			justify-content: start;
+			margin-left: max(0px, calc((100% - var(--measure) - 18rem) / 2 - 9rem));
+		}
+
+		.post.has-toc > :not(.toc) {
+			grid-column: 2;
+		}
+
+		.post.has-toc .toc {
+			display: block;
+		}
+	}
+
+	.post-head {
+		margin: 0 0 3rem;
+	}
+
+	.kicker {
+		margin: 0;
+		font: 600 0.8125rem var(--font-mono);
+		letter-spacing: 0.04em;
+	}
+
+	.kicker a {
+		text-decoration: none;
+	}
+
+	h1 {
+		margin: 0.75rem 0 1.25rem;
+		font-family: var(--font-display);
+		font-size: clamp(2rem, 4.8vw, 3.2rem);
+		font-weight: 600;
+		line-height: 1.02;
+		letter-spacing: -0.01em;
+	}
+
+	.lede {
+		margin: 0 0 2rem;
+		font-size: 1.2em;
+		line-height: 1.5;
+		color: var(--muted);
+	}
+
+	.facts {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem 2.5rem;
+		margin: 0;
+		padding: 1rem 0;
+		border-block: 1px solid var(--line);
+	}
+
+	.facts dt {
+		font: 0.6875rem var(--font-mono);
+		color: var(--muted);
+	}
+
+	.facts dd {
+		margin: 0.15rem 0 0;
+		font-size: 0.9375rem;
+		color: var(--text-strong);
+	}
+
+	.summary {
+		--cut: 1rem;
+		display: grid;
+		grid-template-columns: max-content 1fr;
+		gap: 0.5rem 1.75rem;
+		margin: 2rem 0 0;
+		padding: 1.25rem 1.5rem;
+		font-size: 0.9375rem;
+		line-height: 1.5;
+		background: var(--bg-raised);
+		border-left: 2px solid var(--accent);
+		clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+	}
+
+	.summary div {
+		display: contents;
+	}
+
+	.summary dt {
+		font: 0.75rem/1.9 var(--font-mono);
+		color: var(--muted);
+		text-transform: capitalize;
+	}
+
+	.summary dd {
+		margin: 0;
+		color: var(--text-strong);
+	}
+
+	.toc {
+		display: none;
+		grid-column: 1;
+		grid-row: 1 / span 3;
+		align-self: start;
+		position: sticky;
+		top: 6rem;
+		font-size: 0.875rem;
+		line-height: 1.4;
+	}
+
+	.toc p {
+		margin: 0 0 0.75rem;
+		font: 0.6875rem var(--font-mono);
+		color: var(--muted);
+	}
+
+	.toc ol {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.toc a {
+		display: block;
+		padding: 0.4rem 0 0.4rem 0.9rem;
+		color: var(--muted);
+		text-decoration: none;
+		border-left: 1px solid var(--line);
+		transition: color 0.15s, border-color 0.15s;
+	}
+
+	.toc a:hover,
+	.toc a[aria-current] {
+		color: var(--text-strong);
+		border-color: var(--accent);
+	}
+
+	.post-foot {
+		margin-top: 5rem;
+		padding-top: 2rem;
+		border-top: 1px solid var(--line);
+	}
+
+	.pager {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+		gap: 1rem;
+	}
+
+	.pager a {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		font-family: var(--font-display);
+		font-size: 1.15rem;
+		font-weight: 600;
+		line-height: 1.2;
+		color: var(--text-strong);
+		text-decoration: none;
+	}
+
+	.pager a span {
+		font: 0.75rem var(--font-mono);
+		color: var(--muted);
+	}
+
+	.pager a:hover {
+		color: var(--accent);
+	}
+
+	.pager .next {
+		text-align: right;
+		grid-column: -2;
+	}
+</style>
+
+<script>
+	for (const heading of document.querySelectorAll<HTMLElement>('.prose :is(h2, h3)[id]')) {
+		const anchor = document.createElement('a');
+		anchor.className = 'anchor';
+		anchor.href = `#${heading.id}`;
+		anchor.textContent = '#';
+		anchor.setAttribute('aria-label', `Link to ${heading.textContent}`);
+		heading.append(anchor);
+	}
+
+	document.addEventListener('click', async (event) => {
+		const button = (event.target as HTMLElement).closest<HTMLButtonElement>('.code-copy');
+		const code = button?.closest('.code-frame')?.querySelector('pre');
+		if (!button || !code) return;
+		await navigator.clipboard.writeText(code.innerText);
+		button.textContent = 'Copied';
+		setTimeout(() => (button.textContent = 'Copy'), 1500);
+	});
+
+	const links = new Map(
+		[...document.querySelectorAll<HTMLAnchorElement>('.toc a')].map((link) => [decodeURIComponent(link.hash.slice(1)), link]),
+	);
+	const observer = new IntersectionObserver(
+		(entries) => {
+			for (const entry of entries) {
+				if (!entry.isIntersecting) continue;
+				for (const link of links.values()) link.removeAttribute('aria-current');
+				links.get(entry.target.id)?.setAttribute('aria-current', 'true');
+			}
+		},
+		{ rootMargin: '0px 0px -70% 0px' },
+	);
+	for (const id of links.keys()) {
+		const target = document.getElementById(id);
+		if (target) observer.observe(target);
+	}
+</script>

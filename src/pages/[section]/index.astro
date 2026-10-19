@@ -1,0 +1,21 @@
+---
+import Feed from '../../components/Feed.astro';
+import Base from '../../layouts/Base.astro';
+import { getPosts, SECTIONS, type Section } from '../../site';
+
+export function getStaticPaths() {
+	return Object.keys(SECTIONS).map((section) => ({ params: { section } }));
+}
+
+const section = Astro.params.section as Section;
+const { title, blurb } = SECTIONS[section];
+const posts = await getPosts(section);
+---
+
+<Base title={title} description={blurb}>
+	<header class="page-head">
+		<h1 data-decode>{title}</h1>
+		<p>{blurb}</p>
+	</header>
+	{posts.length ? <Feed posts={posts} /> : <p class="empty">Nothing published here yet.</p>}
+</Base>

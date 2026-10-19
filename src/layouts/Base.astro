@@ -1,0 +1,160 @@
+---
+import { Font } from 'astro:assets';
+import '../styles/main.css';
+import Ascii from '../components/Ascii.astro';
+import { NAV, SITE, SOCIALS } from '../site';
+
+interface Props {
+	title?: string;
+	description?: string;
+	type?: 'website' | 'article';
+}
+
+const { title, description = SITE.description, type = 'website' } = Astro.props;
+const pageTitle = title ? `${title} · ${SITE.title}` : `${SITE.title} · ${SITE.tagline}`;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const section = `/${Astro.url.pathname.split('/')[1] ?? ''}/`;
+---
+
+<!doctype html>
+<html lang="en" data-palette="nightcity" data-type="dossier">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width,initial-scale=1" />
+		<title>{pageTitle}</title>
+		<meta name="description" content={description} />
+		<link rel="canonical" href={canonical} />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="alternate" type="application/rss+xml" title={SITE.title} href={new URL('rss.xml', Astro.site)} />
+		<link rel="sitemap" href="/sitemap-index.xml" />
+		<meta name="theme-color" content="#0b0c10" />
+		<meta name="generator" content={Astro.generator} />
+		<meta property="og:type" content={type} />
+		<meta property="og:url" content={canonical} />
+		<meta property="og:title" content={pageTitle} />
+		<meta property="og:description" content={description} />
+		<meta name="twitter:card" content="summary" />
+		<Font cssVariable="--font-shoulders" preload />
+		<Font cssVariable="--font-serif" preload />
+		<Font cssVariable="--font-fragment" preload />
+		<Font cssVariable="--font-science" />
+		<Font cssVariable="--font-atkinson" />
+		<Font cssVariable="--font-martian" />
+		{import.meta.env.DEV && (
+		<script is:inline>
+			try {
+				const params = new URLSearchParams(location.search);
+				for (const key of ['palette', 'type']) {
+					const value = params.get(key) || localStorage.getItem(key);
+					if (value) document.documentElement.dataset[key] = value;
+				}
+			} catch {}
+		</script>
+		)}
+	</head>
+	<body>
+		<a class="skip" href="#main">Skip to content</a>
+		<header class="site-header">
+			<a class="wordmark" href="/" aria-label={`${SITE.title}, home`}>{SITE.title}</a>
+			<nav aria-label="Main">
+				{NAV.map(({ href, label }) => <a href={href} aria-current={section === href ? 'page' : undefined}>{label}</a>)}
+			</nav>
+			<p class="clock" aria-label="Local time in Kolkata"><span>Kolkata</span> <time data-clock>--:--</time></p>
+		</header>
+		<main id="main">
+			<slot />
+		</main>
+		<footer class="site-footer">
+			<div class="footer-art"><Ascii art="skyline" /></div>
+			<div class="footer-row">
+				<p class="quote">“{SITE.quote}”</p>
+				<p class="links">
+					{SOCIALS.map(({ href, label }) => <a href={href}>{label}</a>)}
+					<span>© {new Date().getFullYear()}</span>
+				</p>
+			</div>
+		</footer>
+
+		{/* ponytail: palette + type picker, dev server only; delete once the choice is final */}
+		{import.meta.env.DEV && (
+		<div class="picker" role="group" aria-label="Preview palette and type">
+			<button type="button" data-key="palette" data-pick="entropic">entropic</button>
+			<button type="button" data-key="palette" data-pick="nightcity">night city</button>
+			<button type="button" data-key="palette" data-pick="dedsec">dedsec</button>
+			<span></span>
+			<button type="button" data-key="type" data-pick="hud">hud</button>
+			<button type="button" data-key="type" data-pick="dossier">dossier</button>
+		</div>
+		)}
+		<script>
+			for (const button of document.querySelectorAll<HTMLButtonElement>('[data-pick]')) {
+				button.addEventListener('click', () => {
+					const { key = '', pick = '' } = button.dataset;
+					try {
+						localStorage.setItem(key, pick);
+					} catch {}
+					// the ASCII wordmark samples the display font once, so a type switch reloads
+					if (key === 'type') location.reload();
+					else document.documentElement.dataset[key] = pick;
+				});
+			}
+
+			// titles marked data-decode resolve from noise once, left to right
+			if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+				const glyphs = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+				for (const el of document.querySelectorAll<HTMLElement>('[data-decode]')) {
+					const final = el.textContent ?? '';
+					el.setAttribute('aria-label', final);
+					const start = performance.now();
+					const step = (now: number) => {
+						const progress = Math.min(1, (now - start) / 650);
+						const shown = Math.floor(final.length * progress);
+						el.textContent =
+							final.slice(0, shown) +
+							[...final.slice(shown)].map((ch) => (ch === ' ' ? ' ' : glyphs[Math.floor(Math.random() * glyphs.length)])).join('');
+						if (progress < 1) requestAnimationFrame(step);
+					};
+					requestAnimationFrame(step);
+				}
+			}
+
+			const clock = document.querySelector('[data-clock]');
+			const format = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' });
+			const tick = () => {
+				if (clock) clock.textContent = format.format(new Date());
+			};
+			tick();
+			setInterval(tick, 15000);
+		</script>
+		<style>
+			.picker {
+				position: fixed;
+				right: 1rem;
+				bottom: 1rem;
+				z-index: 50;
+				display: flex;
+				gap: 0.35rem;
+				padding: 0.35rem;
+				font: 0.75rem var(--font-mono);
+				background: var(--bg-raised);
+				border: 1px solid var(--line);
+			}
+			.picker button {
+				padding: 0.2rem 0.5rem;
+				font: inherit;
+				color: var(--muted);
+				background: none;
+				border: 0;
+				cursor: pointer;
+			}
+			:global([data-palette='entropic']) .picker [data-pick='entropic'],
+			:global([data-palette='nightcity']) .picker [data-pick='nightcity'],
+			:global([data-palette='dedsec']) .picker [data-pick='dedsec'],
+			:global([data-type='hud']) .picker [data-pick='hud'],
+			:global([data-type='dossier']) .picker [data-pick='dossier'] {
+				color: var(--bg);
+				background: var(--accent);
+			}
+		</style>
+	</body>
+</html>

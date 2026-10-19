@@ -1,0 +1,38 @@
+---
+import Ascii from '../components/Ascii.astro';
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Page not found" description="This page does not exist.">
+	<div class="lost-art"><Ascii art="wordmark" text="404" /></div>
+	<div class="lost">
+		<h1>Page not found</h1>
+		<p>The page you are looking for does not exist or has moved.</p>
+		<p><a href="/">Back to the homepage</a></p>
+	</div>
+</Base>
+
+<style>
+	.lost-art {
+		height: clamp(12rem, 30vw, 22rem);
+		margin-inline: calc(var(--gutter) * -1);
+		cursor: crosshair;
+	}
+
+	.lost {
+		max-width: var(--measure);
+		margin: 1rem auto 0;
+		text-align: center;
+	}
+
+	h1 {
+		margin: 0 0 0.75rem;
+		font-family: var(--font-display);
+		font-size: 2rem;
+	}
+
+	p {
+		margin: 0.5rem 0;
+		color: var(--muted);
+	}
+</style>

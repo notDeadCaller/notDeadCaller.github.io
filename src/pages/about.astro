@@ -1,16 +1,38 @@
 ---
-import AboutHeroImage from '../assets/blog-placeholder-about.jpg';
-import Layout from '../layouts/BlogPost.astro';
+import Base from '../layouts/Base.astro';
+import { SITE } from '../site';
 ---
 
-<Layout
-	title="About Me"
-	description="Lorem ipsum dolor sit amet"
-	pubDate={new Date('August 08 2021')}
-	heroImage={AboutHeroImage}
->
-	<p>
-		~o ye of little faith~
-	</p>
+<Base title="About" description="About Avishek, also known as notDeadCaller.">
+	<header class="page-head">
+		<h1 data-decode>About</h1>
+		<p>Avishek, also known as notDeadCaller. Based in Kolkata.</p>
+	</header>
 
-</Layout>
+	<div class="prose">
+		<p>
+			I work in offensive security, mostly black-box testing of web applications: no source code, no credentials, only
+			what the application exposes. I am most interested in small logic flaws that have large consequences, like a
+			login flow that never limits how many times you can guess a one-time password.
+		</p>
+		<p>
+			I also build software. Recent projects include an Android safety app, a private chat over TCP using
+			post-quantum cryptography, and a health assistant for university students.
+		</p>
+		<p>
+			This site collects <a href="/writeups/">writeups</a> of security work, shorter <a href="/notes/">notes</a>, and
+			<a href="/projects/">projects</a>. If you are here to hire me, start with the <a href="/resume/">resume</a>.
+		</p>
+
+		<h2 id="contact">Contact</h2>
+		<p>The best way to reach me is through <a href="https://github.com/notDeadCaller">GitHub</a>.</p>
+
+		<h2 id="colophon">Colophon</h2>
+		<p>
+			Built with <a href="https://astro.build">Astro</a> and hosted on GitHub Pages. The ASCII artwork is drawn live in
+			a canvas by a small renderer written for this site. The visual language draws on the interfaces of Watch Dogs and
+			Cyberpunk 2077.
+		</p>
+		<blockquote>{SITE.quote}</blockquote>
+	</div>
+</Base>

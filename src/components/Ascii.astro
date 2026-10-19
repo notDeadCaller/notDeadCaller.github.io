@@ -1,0 +1,44 @@
+---
+// Decorative ASCII canvas. `art` picks the piece from src/lib/art.ts.
+// covers take a `seed` (the slug) and an optional `motif` from frontmatter; wordmarks take `text`.
+interface Props {
+	art: 'wordmark' | 'cover' | 'skyline';
+	text?: string;
+	seed?: string;
+	motif?: string;
+	dissolve?: boolean;
+	class?: string;
+}
+
+const { art, text, seed, motif, dissolve, class: className } = Astro.props;
+---
+
+<canvas
+	class:list={['ascii', className]}
+	data-art={art}
+	data-text={text}
+	data-seed={seed}
+	data-motif={motif}
+	data-dissolve={dissolve ? '' : undefined}
+	aria-hidden="true"></canvas>
+
+<script>
+	import { cover, skyline, wordmark } from '../lib/art';
+
+	for (const canvas of document.querySelectorAll<HTMLCanvasElement>('canvas.ascii')) {
+		const { art, text = '', seed = '', motif = '' } = canvas.dataset;
+		if (art === 'wordmark') wordmark(canvas, text, { cell: innerWidth < 640 ? 4.5 : 6 });
+		else if (art === 'cover')
+			cover(canvas, seed, motif, { target: canvas.closest('a, li'), dissolve: 'dissolve' in canvas.dataset });
+		else if (art === 'skyline') skyline(canvas);
+	}
+</script>
+
+<style>
+	.ascii {
+		display: block;
+		width: 100%;
+		height: 100%;
+		font-family: var(--font-mono);
+	}
+</style>

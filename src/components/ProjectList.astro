@@ -1,0 +1,34 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import Ascii from './Ascii.astro';
+
+interface Props {
+	projects: CollectionEntry<'projects'>[];
+}
+
+const { projects } = Astro.props;
+---
+
+<ol class="projects">
+	{
+		projects.map(({ id, data }) => {
+			const href = data.link ?? data.repo;
+			return (
+				<li class="project">
+					<div class="project-art">
+						<Ascii art="cover" seed={id} motif={data.art} />
+					</div>
+					<div class="project-body">
+						<h3>{href ? <a href={href}>{data.title}</a> : data.title}</h3>
+						<p>{data.description}</p>
+						<p class="project-meta">
+							<span>{data.year}</span>
+							{data.stack.length > 0 && <span>{data.stack.join(' / ')}</span>}
+							{data.status && <span>{data.status}</span>}
+						</p>
+					</div>
+				</li>
+			);
+		})
+	}
+</ol>

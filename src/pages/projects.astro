@@ -1,0 +1,18 @@
+---
+import { getCollection } from 'astro:content';
+import ProjectList from '../components/ProjectList.astro';
+import Base from '../layouts/Base.astro';
+
+const blurb = 'Software I have built, from mobile apps to network tools.';
+const projects = (await getCollection('projects')).sort(
+	(a, b) => Number(b.data.featured) - Number(a.data.featured) || a.data.order - b.data.order || b.data.year - a.data.year,
+);
+---
+
+<Base title="Projects" description={blurb}>
+	<header class="page-head">
+		<h1 data-decode>Projects</h1>
+		<p>{blurb}</p>
+	</header>
+	<ProjectList projects={projects} />
+</Base>

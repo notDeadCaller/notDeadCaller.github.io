@@ -1,49 +1,132 @@
 ---
-import BaseHead from '../components/BaseHead.astro';
-import Footer from '../components/Footer.astro';
-import Header from '../components/Header.astro';
-import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
+import { getCollection } from 'astro:content';
+import Ascii from '../components/Ascii.astro';
+import Feed from '../components/Feed.astro';
+import ProjectList from '../components/ProjectList.astro';
+import Base from '../layouts/Base.astro';
+import { getFeed, SITE } from '../site';
+
+const latest = (await getFeed()).slice(0, 5);
+const projects = (await getCollection('projects', ({ data }) => data.featured)).sort(
+	(a, b) => a.data.order - b.data.order || b.data.year - a.data.year,
+);
 ---
 
-<!doctype html>
-<html lang="en">
-	<head>
-		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
-	</head>
-	<body>
-		<Header />
-		<main>
-			<h1>🧑‍🚀 Hello, Astronaut!</h1>
-			<p>
-				Welcome to the official <a href="https://astro.build/">Astro</a> blog starter template. This template
-				serves as a lightweight, minimally-styled starting point for anyone looking to build a personal
-				website, blog, or portfolio with Astro.
-			</p>
-			<p>
-				This template comes with a few integrations already configured in your
-				<code>astro.config.mjs</code> file. You can customize your setup with
-				<a href="https://astro.build/integrations">Astro Integrations</a> to add tools like Tailwind,
-				React, or Vue to your project.
-			</p>
-			<p>Here are a few ideas on how to get started with the template:</p>
-			<ul>
-				<li>Edit this page in <code>src/pages/index.astro</code></li>
-				<li>Edit the site header items in <code>src/components/Header.astro</code></li>
-				<li>Add your name to the footer in <code>src/components/Footer.astro</code></li>
-				<li>Check out the included blog posts in <code>src/content/blog/</code></li>
-				<li>Customize the blog post page layout in <code>src/layouts/BlogPost.astro</code></li>
-			</ul>
-			<p>
-				Have fun! If you get stuck, remember to
-				<a href="https://docs.astro.build/">read the docs</a>
-				or <a href="https://astro.build/chat">join us on Discord</a> to ask questions.
-			</p>
-			<p>
-				Looking for a blog template with a bit more personality? Check out
-				<a href="https://github.com/Charca/astro-blog-template">astro-blog-template</a>
-				by <a href="https://twitter.com/Charca">Maxi Ferreira</a>.
-			</p>
-		</main>
-		<Footer />
-	</body>
-</html>
+<Base>
+	<section class="hero">
+		<h1 class="sr-only">{SITE.title}</h1>
+		<div class="hero-art"><Ascii art="wordmark" text={SITE.title} /></div>
+		<p class="hint" aria-hidden="true">Move the cursor over the name. Click it.</p>
+	</section>
+
+	<section class="intro">
+		<p class="intro-lead">
+			I'm Avishek, a security researcher and developer in Kolkata. I test web applications for a living and build
+			software on the side.
+		</p>
+		<ul class="intro-links">
+			<li><a href="/writeups/">Read the writeups</a></li>
+			<li><a href="/resume/">See my resume</a></li>
+			<li><a href="https://github.com/notDeadCaller">Code on GitHub</a></li>
+		</ul>
+	</section>
+
+	<section class="section" aria-labelledby="writing">
+		<header class="section-head">
+			<h2 id="writing">Latest writing</h2>
+			<a href="/writeups/">All writeups</a>
+		</header>
+		{latest.length ? <Feed posts={latest} /> : <p class="empty">Nothing published yet.</p>}
+	</section>
+
+	{
+		projects.length > 0 && (
+			<section class="section" aria-labelledby="projects">
+				<header class="section-head">
+					<h2 id="projects">Projects</h2>
+					<a href="/projects/">All projects</a>
+				</header>
+				<ProjectList projects={projects} />
+			</section>
+		)
+	}
+</Base>
+
+<style>
+	.hero {
+		position: relative;
+		margin-inline: calc(var(--gutter) * -1);
+	}
+
+	.hero-art {
+		height: clamp(15rem, 42vw, 34rem);
+		cursor: crosshair;
+	}
+
+	.hint {
+		margin: 0 var(--gutter);
+		font: 0.75rem var(--font-mono);
+		color: var(--muted);
+		text-align: right;
+	}
+
+	@media (hover: none) {
+		.hint {
+			display: none;
+		}
+	}
+
+	.intro {
+		display: grid;
+		gap: 2rem 4rem;
+		margin: 3rem 0 0;
+	}
+
+	@media (min-width: 60em) {
+		.intro {
+			grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
+			align-items: end;
+		}
+	}
+
+	.intro-lead {
+		max-width: 30ch;
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: clamp(1.4rem, 2.8vw, 2.1rem);
+		font-weight: 400;
+		line-height: 1.25;
+		color: var(--text-strong);
+	}
+
+	.intro-links {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		border-top: 1px solid var(--line);
+	}
+
+	.intro-links a {
+		display: flex;
+		justify-content: space-between;
+		padding: 0.7rem 0;
+		color: var(--text);
+		text-decoration: none;
+		border-bottom: 1px solid var(--line);
+	}
+
+	.intro-links a::after {
+		content: '↗';
+		color: var(--muted);
+		transition: transform 0.2s, color 0.2s;
+	}
+
+	.intro-links a:hover {
+		color: var(--accent);
+	}
+
+	.intro-links a:hover::after {
+		color: var(--accent);
+		transform: translate(2px, -2px);
+	}
+</style>

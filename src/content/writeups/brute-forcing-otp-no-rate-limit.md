@@ -1,8 +1,14 @@
 ---
+art: counter
 title: 'One Million Guesses: Brute-Forcing an OTP With No Rate Limit'
 description: 'An authorized black-box test on a login flow that issued a one-time password but never limited how many times you could guess it.'
-pubDate: 'Jun 27 2026'
-heroImage: '../../assets/blog-placeholder-1.jpg'
+pubDate: 2026-06-27
+tags: ['pentest', 'auth', 'rate-limiting']
+summary:
+  target: 'Meridian Portal (anonymized)'
+  engagement: 'Authorized black-box web pentest'
+  finding: 'Unlimited OTP attempts, leading to account takeover'
+  severity: 'High'
 ---
 
 A while back I ran an authorized black-box penetration test against a web application. I'll call the target **Meridian Portal** throughout — the findings were disclosed privately and I've stripped anything identifying. One issue stood out for how small the bug was and how large the consequence: the login flow issued a one-time password, then let you guess it as many times as you wanted.
