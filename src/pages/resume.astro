@@ -7,7 +7,7 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 // experience, training and education share one shape: title @ org, period, bullet points
 const timeline = [
 	{ heading: 'Experience', entries: resume.experience.map((e) => ({ ...e, title: e.role })) },
-	{ heading: 'Training', entries: resume.training },
+	{ heading: 'Training', entries: resume.training.map((e) => ({ ...e, orgLinks: undefined })) },
 ];
 ---
 
@@ -29,11 +29,22 @@ const timeline = [
 			timeline.map(({ heading, entries }) => (
 				<section>
 					<h2>{heading}</h2>
-					{entries.map(({ title, org, period, points }) => (
+					{entries.map(({ title, org, orgLinks, period, points }) => (
 						<div class="entry">
 							<div class="entry-head">
 								<h3>
-									{title} <span class="at">@ {org}</span>
+									{title}{' '}
+									<span class="at">
+										@{' '}
+										{orgLinks
+											? orgLinks.map(({ label, href }, i) => (
+													<>
+														{i > 0 && ' · '}
+														<a href={href}>{label}</a>
+													</>
+												))
+											: org}
+									</span>
 								</h3>
 								<span class="period">{period}</span>
 							</div>
@@ -224,6 +235,15 @@ const timeline = [
 	.at {
 		font-weight: 400;
 		color: var(--muted);
+	}
+
+	.at a {
+		color: var(--text);
+		text-decoration: none;
+	}
+
+	.at a:hover {
+		color: var(--accent);
 	}
 
 	.period {

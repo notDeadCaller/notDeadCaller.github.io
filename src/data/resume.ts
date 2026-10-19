@@ -15,7 +15,12 @@ export const resume = {
 	experience: [
 		{
 			role: 'Founding Security Engineer',
-			org: 'Techtel Ideas Pvt. Ltd. (Opzami)',
+			org: 'Techtel Ideas Pvt. Ltd.',
+			// the employer and the product it builds, both linked on the resume
+			orgLinks: [
+				{ label: 'Techtel Ideas Pvt. Ltd.', href: 'https://techtel.in/' },
+				{ label: 'Opzami', href: 'https://opzami.com/' },
+			],
 			period: 'May 2026 – Present',
 			points: [
 				'Own security and payments for Opzami, a pre-launch AI B2B SaaS startup.',

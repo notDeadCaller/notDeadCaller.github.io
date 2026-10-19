@@ -19,6 +19,10 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 	</section>
 
 	<section class="intro">
+		<p class="now">
+			<span class="live" aria-hidden="true"></span>
+			Currently Founding Security Engineer at <a href="https://opzami.com/">Opzami</a>
+		</p>
 		<p class="intro-lead">
 			I'm Avishek, a cybersec undergrad and systems developer based out of Kolkata, testing and exploring sh*t worth
 			probing.
@@ -74,6 +78,37 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 		.intro {
 			grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
 			align-items: end;
+		}
+	}
+
+	.now {
+		grid-column: 1 / -1;
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		margin: 0 0 -1rem;
+		font: 0.8125rem var(--font-mono);
+		color: var(--muted);
+	}
+
+	.now a {
+		color: var(--accent);
+		text-decoration: none;
+	}
+
+	/* a small status light, like an online indicator on a HUD */
+	.live {
+		width: 0.5rem;
+		height: 0.5rem;
+		background: var(--accent);
+		box-shadow: 0 0 8px var(--accent);
+		clip-path: polygon(0 0, 100% 0, 100% 60%, 60% 100%, 0 100%);
+		animation: pulse 2.4s ease-in-out infinite;
+	}
+
+	@keyframes pulse {
+		50% {
+			opacity: 0.35;
 		}
 	}
 
