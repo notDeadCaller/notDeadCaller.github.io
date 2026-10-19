@@ -572,3 +572,37 @@ export function skyline(canvas: HTMLCanvasElement) {
 		},
 	});
 }
+
+// ── stills for build-time images ──────────────────────────────────────────
+
+export type Cell = { ch: string; tone: number; a: number };
+
+/**
+ * One still frame of a cover motif as rows of cells, computed without the DOM so the
+ * build can draw link-preview images. Text-mask motifs (counter, glyph:) need a canvas,
+ * so they fall back to the slug-seeded pattern.
+ */
+export function asciiFrame(seed: string, motif: string, cols: number, rows: number, aspect = 2, time = 2.3): Cell[][] {
+	const rand = seeded(seed);
+	const make = MOTIFS[motif] && motif !== 'counter' ? MOTIFS[motif] : generative;
+	const piece = make(rand);
+	const field: Field = {
+		cols,
+		rows,
+		time,
+		aspect,
+		pointer: { x: -99, y: -99, active: false, pressedAt: -99 },
+		scroll: { past: 0, seen: 1, speed: 0 },
+		data: {},
+	};
+	const out: Glyph = { ch: ' ', a: 0, tone: 0 };
+	return Array.from({ length: rows }, (_, y) =>
+		Array.from({ length: cols }, (_, x) => {
+			out.ch = ' ';
+			out.a = 0;
+			out.tone = 0;
+			piece.shader(x, y, field, out);
+			return out.a < 0.05 || out.ch === ' ' ? { ch: ' ', tone: 0, a: 0 } : { ch: out.ch, tone: out.tone, a: Math.min(1, out.a) };
+		}),
+	);
+}
