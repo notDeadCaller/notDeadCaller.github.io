@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-	<rect width="32" height="32" rx="7" fill="#0b0c10" />
-	<path d="M8 10l6 6-6 6" fill="none" stroke="#93ffd7" stroke-width="3" stroke-linecap="square" />
-	<rect x="16" y="20" width="9" height="3" fill="#bb8cf0" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges">
+	<!-- chamfered tile, cyan misregistration behind a yellow pixel N -->
+	<path d="M0 0H25L32 7V32H0Z" fill="#0a0b0e" />
+	<path d="M5 6h4v20H5zM21 6h4v20h-4zM9 10h4v4H9zM13 14h4v4h-4zM17 18h4v4h-4z" fill="#00e6f6" opacity="0.85" transform="translate(-1.5 0)" />
+	<path d="M5 6h4v20H5zM21 6h4v20h-4zM9 10h4v4H9zM13 14h4v4h-4zM17 18h4v4h-4z" fill="#fcee0a" transform="translate(0.5 0)" />
 </svg>
