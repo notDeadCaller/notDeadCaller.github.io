@@ -77,7 +77,8 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 	@media (min-width: 60em) {
 		.intro {
 			grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
-			align-items: end;
+			/* the lead sits centred against the link list, its lines between the list's borders */
+			align-items: center;
 		}
 	}
 

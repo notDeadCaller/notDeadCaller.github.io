@@ -41,25 +41,52 @@ export function wordmark(canvas: HTMLCanvasElement, text: string, { cell = 9, gl
 				const wide = field.cols / (field.rows * field.aspect) > 4.5;
 				const lines = !wide && text.length > 8 ? splitWord(text) : text;
 				field.data.mask = textMask(lines, field.cols, field.rows, field.aspect, font);
+				// per-cell randomness is fixed for the page, so compute it once instead of every frame
+				const noise = new Float32Array(field.cols * field.rows);
+				for (let i = 0; i < noise.length; i++) noise[i] = hash(i % field.cols, Math.floor(i / field.cols));
+				field.data.noise = noise;
+				field.data.tears = new Int8Array(field.rows);
+			},
+			// everything that is the same for a whole frame (or a whole row) is worked out here, once
+			frame(field) {
+				const { time: t, pointer: p, rows, cols } = field;
+				const tick = Math.floor(t * 7);
+				// horizontal tears, more of them while the page is scrolling fast
+				const tearChance = glitch + Math.min(0.5, field.scroll.speed / 4000);
+				const tears = field.data.tears as Int8Array;
+				const tearing = hash(tick, 1) < tearChance;
+				for (let y = 0; y < rows; y++) tears[y] = tearing && hash(y, tick) < 0.3 ? Math.round((hash(y, tick + 9) - 0.5) * 10) : 0;
+				const ringAge = t - p.pressedAt;
+				field.data.f = {
+					ringOn: ringAge < 1.5,
+					ringR: ringAge * 140,
+					radius: Math.min(24, cols / 5),
+					sweepX: p.active ? -99 : ((t % 7) / 7) * cols * 1.6 - cols * 0.3,
+					flick: Math.floor(t * 10),
+					flow: Math.floor(t * 3),
+					hex: Math.floor(t * 12),
+				};
 			},
 			shader(x, y, field, out) {
 				const { cols, rows, time: t, aspect, pointer: p } = field;
 				const mask = field.data.mask as Float32Array;
+				const noise = field.data.noise as Float32Array;
+				const f = field.data.f as { ringOn: boolean; ringR: number; radius: number; sweepX: number; flick: number; flow: number; hex: number };
+				const tear = (field.data.tears as Int8Array)[y];
 
-				// horizontal tears, more of them while the page is scrolling fast
-				const tick = Math.floor(t * 7);
-				const tearChance = glitch + Math.min(0.5, field.scroll.speed / 4000);
-				const tear = hash(tick, 1) < tearChance && hash(y, tick) < 0.3 ? Math.round((hash(y, tick + 9) - 0.5) * 10) : 0;
-
-				// scanner lens magnifies whatever is under the pointer
-				const dx = x - p.x;
-				const dy = (y - p.y) * aspect;
-				const d = Math.hypot(dx, dy);
-				const radius = Math.min(24, cols / 5);
+				// distance to the pointer only matters while the lens or a shockwave is live
+				let d = 1e9;
+				let dx = 0;
+				if (p.active || f.ringOn) {
+					dx = x - p.x;
+					d = Math.hypot(dx, (y - p.y) * aspect);
+				}
+				const radius = f.radius;
 				const lens = p.active && d < radius;
 				let sx = x - tear;
 				let sy = y;
 				if (lens) {
+					// scanner lens magnifies whatever is under the pointer
 					const k = 0.55 + 0.45 * (d / radius) ** 2;
 					sx = p.x + dx * k;
 					sy = p.y + (y - p.y) * k;
@@ -69,9 +96,8 @@ export function wordmark(canvas: HTMLCanvasElement, text: string, { cell = 9, gl
 				const cov = ix >= 0 && ix < cols && iy >= 0 && iy < rows ? mask[iy * cols + ix] : 0;
 
 				// shockwave ring after a click, idle sweep when nobody is pointing
-				const ring = Math.abs(d - (t - p.pressedAt) * 140) < 2.5 && t - p.pressedAt < 1.5;
-				const sweepX = ((t % 7) / 7) * cols * 1.6 - cols * 0.3;
-				const sweep = !p.active && Math.abs(x - sweepX) < 1.5;
+				const ring = f.ringOn && Math.abs(d - f.ringR) < 2.5;
+				const sweep = Math.abs(x - f.sweepX) < 1.5;
 
 				if (ring) {
 					out.ch = cov > 0.18 ? randomGlyph() : randomGlyph('.:+*');
@@ -84,32 +110,35 @@ export function wordmark(canvas: HTMLCanvasElement, text: string, { cell = 9, gl
 					out.a = 0.5 + 0.5 * cov;
 					out.tone = gradient(x / cols);
 					if (lens) {
-						out.ch = HEX[Math.floor(hash(x + Math.floor(t * 12), y) * 16)];
+						out.ch = HEX[Math.floor(hash(x + f.hex, y) * 16)];
 						out.tone = 7;
 						out.a = 1;
-					} else if (sweep || hash(x * 7 + y, Math.floor(t * 10)) < 0.015) {
+					} else if (sweep || hash(x * 7 + y, f.flick) < 0.015) {
 						out.ch = randomGlyph();
 						out.tone = 6;
 						out.a = 1;
 					} else if (cov < 0.5) {
 						out.ch = RAMP[2 + Math.floor(cov * 5)];
 					} else {
-						out.ch = fill[(x + y * 5 + Math.floor(t * 3)) % fill.length];
+						out.ch = fill[(x + y * 5 + f.flow) % fill.length];
 					}
 					return;
 				}
 
 				// background: sparse drifting dust, a faint hex readout inside the lens
+				const r = noise[y * cols + x];
 				if (lens) {
-					if (hash(x, y) < 0.35) {
+					if (r < 0.35) {
 						out.ch = HEX[Math.floor(hash(y, x + Math.floor(t * 4)) * 16)];
 						out.a = 0.35 * (1 - d / radius);
 						out.tone = 5;
 					}
 					return;
 				}
+				// half the cells can never hold dust: skip the wave maths for them
+				if (r >= 0.5) return;
 				const n = wave(x, y, t * 0.5);
-				if (n > 0.62 && hash(x, y) < 0.5) {
+				if (n > 0.62) {
 					out.ch = n > 0.8 ? ':' : '.';
 					out.a = (n - 0.55) * 0.9;
 					out.tone = 0;

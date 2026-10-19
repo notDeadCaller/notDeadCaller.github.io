@@ -227,14 +227,19 @@ export function mount(canvas: HTMLCanvasElement, options: Options) {
 		ctx.globalAlpha = 1;
 	};
 
+	// adaptive frame rate: keep drawing under ~25% of the time between frames, so weak devices
+	// slow the animation down instead of stuttering, and fast ones keep the full rate
+	let cost = 0;
 	const loop = (now: number) => {
 		raf = 0;
 		if (!visible || reduced) return;
 		raf = requestAnimationFrame(loop);
-		if (now - last < 1000 / fps) return;
+		if (now - last < Math.max(1000 / fps, cost / 0.25)) return;
 		last = now;
 		field.time = (now - start) / 1000;
+		const t0 = performance.now();
 		draw();
+		cost = cost * 0.9 + (performance.now() - t0) * 0.1;
 	};
 	const play = () => {
 		if (!raf) raf = requestAnimationFrame(loop);
