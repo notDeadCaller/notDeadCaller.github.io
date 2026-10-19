@@ -11,7 +11,7 @@
 	--accent: #93ffd7;
 	--accent-2: #bb8cf0;
 	--hot: #ff2a6d;
-	--measure: 68ch;
+	--underline: color-mix(in srgb, var(--accent-2) 65%, transparent);
 	--gutter: 1.25rem;
 	--font-display: var(--font-shoulders);
 	--font-body: var(--font-serif);
@@ -102,17 +102,21 @@ a {
 	text-underline-offset: 0.2em;
 }
 
-/* every link that lights up on hover also gets a thin cyan underline */
-a:is(:hover, :focus-visible):not(.wordmark, .skip, .feed a) {
-	text-decoration: underline;
-	text-decoration-color: color-mix(in srgb, var(--accent-2) 75%, transparent);
-	text-decoration-thickness: 1px;
-	text-underline-offset: 0.28em;
+/* every link that lights up on hover also draws a thin cyan underline, left to right */
+a:not(.wordmark, .skip, .feed a),
+.feed .ul {
+	background: linear-gradient(var(--underline), var(--underline)) no-repeat 0 100% / 0 1px;
+	transition: background-size 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
-.feed a:is(:hover, :focus-visible) h3 {
-	text-decoration: underline 1px color-mix(in srgb, var(--accent-2) 75%, transparent);
-	text-underline-offset: 0.2em;
+a:is(:hover, :focus-visible):not(.wordmark, .skip, .feed a),
+.feed a:is(:hover, :focus-visible) .ul {
+	background-size: 100% 1px;
+}
+
+/* links that are underlined at rest hand the line over to the cyan one */
+a:is(:hover, :focus-visible) {
+	text-decoration-color: transparent;
 }
 
 :focus-visible {

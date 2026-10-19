@@ -23,7 +23,7 @@ const { posts } = Astro.props;
 							<time datetime={post.data.pubDate.toISOString()}>{isoDate(post.data.pubDate)}</time>
 							<span>{readingMinutes(post.body)} min</span>
 						</p>
-						<h3>{post.data.title}</h3>
+						<h3><span class="ul">{post.data.title}</span></h3>
 						<p class="feed-desc">{post.data.description}</p>
 					</div>
 				</a>

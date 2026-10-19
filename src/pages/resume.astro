@@ -4,6 +4,11 @@ import { resume } from '../data/resume';
 import Base from '../layouts/Base.astro';
 
 const projects = (await getCollection('projects', ({ data }) => data.featured)).sort((a, b) => a.data.order - b.data.order);
+// experience, training and education share one shape: title @ org, period, bullet points
+const timeline = [
+	{ heading: 'Experience', entries: resume.experience.map((e) => ({ ...e, title: e.role })) },
+	{ heading: 'Training', entries: resume.training },
+];
 ---
 
 <Base title="Resume" description={`${resume.name}: ${resume.headline}`}>
@@ -20,34 +25,38 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 
 		<p class="summary">{resume.summary}</p>
 
-		<section>
-			<h2>Experience</h2>
-			{
-				resume.experience.map(({ role, org, period, points }) => (
-					<div class="entry">
-						<div class="entry-head">
-							<h3>
-								{role} <span class="at">@ {org}</span>
-							</h3>
-							<span class="period">{period}</span>
+		{
+			timeline.map(({ heading, entries }) => (
+				<section>
+					<h2>{heading}</h2>
+					{entries.map(({ title, org, period, points }) => (
+						<div class="entry">
+							<div class="entry-head">
+								<h3>
+									{title} <span class="at">@ {org}</span>
+								</h3>
+								<span class="period">{period}</span>
+							</div>
+							<ul>
+								{points.map((point) => (
+									<li>{point}</li>
+								))}
+							</ul>
 						</div>
-						<ul>
-							{points.map((point) => (
-								<li>{point}</li>
-							))}
-						</ul>
-					</div>
-				))
-			}
-		</section>
+					))}
+				</section>
+			))
+		}
 
 		<section>
 			<h2>Projects</h2>
 			{
-				projects.map(({ data }) => (
+				projects.map(({ id, data }) => (
 					<div class="entry">
 						<div class="entry-head">
-							<h3>{data.repo ? <a href={data.repo}>{data.title}</a> : data.title}</h3>
+							<h3>
+								<a href={`/projects/${id}/`}>{data.title}</a>
+							</h3>
 							<span class="period">{data.year}</span>
 						</div>
 						<p>
@@ -56,6 +65,22 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 					</div>
 				))
 			}
+		</section>
+
+		<section>
+			<h2>Achievements</h2>
+			<ul class="wins">
+				{
+					resume.achievements.map(({ place, event, where }) => (
+						<li>
+							<span class="place">{place}</span>
+							<span>
+								{event} <span class="dim">· {where}</span>
+							</span>
+						</li>
+					))
+				}
+			</ul>
 		</section>
 
 		<section>
@@ -75,12 +100,19 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 		<section>
 			<h2>Education</h2>
 			{
-				resume.education.map(({ title, org, period }) => (
-					<div class="entry-head">
-						<h3>
-							{title} <span class="at">@ {org}</span>
-						</h3>
-						<span class="period">{period}</span>
+				resume.education.map(({ title, org, period, points }) => (
+					<div class="entry">
+						<div class="entry-head">
+							<h3>
+								{title} <span class="at">@ {org}</span>
+							</h3>
+							<span class="period">{period}</span>
+						</div>
+						<ul>
+							{points.map((point) => (
+								<li>{point}</li>
+							))}
+						</ul>
 					</div>
 				))
 			}
@@ -217,6 +249,25 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 		font-size: 0.8125rem;
 	}
 
+	.wins {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.wins li {
+		display: grid;
+		grid-template-columns: 7.5rem 1fr;
+		gap: 1rem;
+		padding: 0.35rem 0;
+		border-bottom: 1px solid var(--line);
+	}
+
+	.place {
+		font: 600 0.8125rem/1.9 var(--font-mono);
+		color: var(--accent);
+	}
+
 	.skills {
 		display: grid;
 		grid-template-columns: max-content 1fr;
@@ -271,6 +322,7 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 			text-decoration: none;
 		}
 
+		.place,
 		.contact,
 		.period,
 		.at,

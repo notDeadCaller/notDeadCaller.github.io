@@ -3,7 +3,7 @@ art: lattice
 title: 'AnonComm'
 description: 'A private one-to-one chat over raw TCP, written in C, with post-quantum key exchange.'
 year: 2025
-stack: ['C', 'liboqs', 'CRYSTALS-Kyber-768', 'AES-256-GCM', 'ncurses']
+stack: ['C', 'POSIX threads', 'liboqs', 'CRYSTALS-Kyber', 'CRYSTALS-Dilithium', 'AES-256-GCM', 'ncurses']
 repo: 'https://github.com/notDeadCaller/AnonComm'
 featured: true
 order: 2
@@ -36,10 +36,11 @@ AnonComm started as a plain socket chat and grew, one dated iteration at a time,
 ## Where it ended up
 
 - **Key exchange:** the session key is agreed with CRYSTALS-Kyber-768 through the Open Quantum Safe library (liboqs). Kyber is a lattice-based scheme designed to resist attacks from quantum computers. It replaced classic Diffie-Hellman.
+- **Signatures:** CRYSTALS-Dilithium, the matching post-quantum signature scheme, also through liboqs.
 - **Encryption:** messages are encrypted and authenticated with AES-256-GCM. It replaced the Vigenère cipher from the early versions.
 - **Access control:** password authentication and an IP allowlist on the server.
 - **Abuse protection:** per-client rate limiting using a token bucket.
-- **Interface:** an ncurses terminal UI with separate threads for sending and receiving.
+- **Interface:** an ncurses terminal UI, with sending and receiving on separate POSIX threads.
 
 ## Why build it
 

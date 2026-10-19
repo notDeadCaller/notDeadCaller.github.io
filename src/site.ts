@@ -18,6 +18,7 @@ export const NAV = [
 
 export const SOCIALS = [
 	{ href: 'https://github.com/notDeadCaller', label: 'GitHub' },
+	{ href: 'https://www.linkedin.com/in/avishekwithav/', label: 'LinkedIn' },
 	{ href: '/rss.xml', label: 'RSS' },
 ];
 

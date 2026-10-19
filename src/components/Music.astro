@@ -17,11 +17,13 @@ const TRACK = { src: '/audio/raze-menu-theme.mp3', title: 'Menu Theme', artist: 
 		<label class="mi-volume">
 			<span>Volume</span>
 			<input type="range" min="0" max="0.6" step="0.01" value="0.22" />
+			<output>37%</output>
 		</label>
 		<p class="mi-note">
-			Used here for atmosphere on a personal, non-commercial site. All rights remain with the composer; this site is not
-			affiliated with or endorsed by them. If you hold the rights and want it removed, reach me on{' '}
-			<a href="https://github.com/notDeadCaller">GitHub</a> and it comes down.
+			This soundtrack is from the original flash game Raze, a major childhood memory, and is used on this site for
+			atmosphere on a personal, non-commercial site. All rights remain with the composer; this site is not affiliated with
+			or endorsed by them. For rightful removal request or any concerns kindly reach me on{' '}
+			<a href="https://github.com/notDeadCaller">Github</a>.
 		</p>
 	</div>
 </div>
@@ -31,6 +33,7 @@ const TRACK = { src: '/audio/raze-menu-theme.mp3', title: 'Menu Theme', artist: 
 	const audio = root?.querySelector('audio');
 	const toggle = root?.querySelector<HTMLButtonElement>('.music-toggle');
 	const slider = root?.querySelector<HTMLInputElement>('.mi-volume input');
+	const readout = root?.querySelector('.mi-volume output');
 
 	if (root && audio && toggle && slider) {
 		let target = 0.22;
@@ -39,6 +42,13 @@ const TRACK = { src: '/audio/raze-menu-theme.mp3', title: 'Menu Theme', artist: 
 			if (saved > 0) target = saved;
 		} catch {}
 		slider.value = String(target);
+		// paint the filled part of the meter and the percentage readout
+		const show = () => {
+			const pct = Math.round((Number(slider.value) / Number(slider.max)) * 100);
+			slider.style.setProperty('--level', `${pct}%`);
+			if (readout) readout.textContent = `${pct}%`;
+		};
+		show();
 
 		let fadeId = 0;
 		const fade = (to: number, ms: number, done?: () => void) => {
@@ -76,6 +86,7 @@ const TRACK = { src: '/audio/raze-menu-theme.mp3', title: 'Menu Theme', artist: 
 
 		slider.addEventListener('input', () => {
 			target = Number(slider.value);
+			show();
 			if (!audio.paused) audio.volume = target;
 			try {
 				localStorage.setItem('music-volume', String(target));
@@ -213,9 +224,59 @@ const TRACK = { src: '/audio/raze-menu-theme.mp3', title: 'Menu Theme', artist: 
 		color: var(--muted);
 	}
 
+	/* segmented level meter: filled segments up to --level, a slim yellow bar as the handle */
 	.mi-volume input {
+		--level: 37%;
 		flex: 1;
-		accent-color: var(--accent);
+		height: 1rem;
+		margin: 0;
+		background: transparent;
+		appearance: none;
+		cursor: pointer;
+	}
+
+	.mi-volume input::-webkit-slider-runnable-track {
+		height: 0.55rem;
+		background:
+			repeating-linear-gradient(90deg, transparent 0 4px, var(--bg-raised) 4px 6px),
+			linear-gradient(90deg, var(--accent-2) var(--level), var(--line) var(--level));
+	}
+
+	.mi-volume input::-moz-range-track {
+		height: 0.55rem;
+		background:
+			repeating-linear-gradient(90deg, transparent 0 4px, var(--bg-raised) 4px 6px),
+			linear-gradient(90deg, var(--accent-2) var(--level), var(--line) var(--level));
+	}
+
+	.mi-volume input::-webkit-slider-thumb {
+		width: 4px;
+		height: 1rem;
+		margin-top: calc((0.55rem - 1rem) / 2);
+		background: var(--accent);
+		border: 0;
+		border-radius: 0;
+		appearance: none;
+		box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent);
+	}
+
+	.mi-volume input::-moz-range-thumb {
+		width: 4px;
+		height: 1rem;
+		background: var(--accent);
+		border: 0;
+		border-radius: 0;
+		box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent);
+	}
+
+	.mi-volume input:focus-visible {
+		outline-offset: 4px;
+	}
+
+	.mi-volume output {
+		min-width: 3ch;
+		text-align: right;
+		color: var(--accent);
 	}
 
 	.mi-note {
