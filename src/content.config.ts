@@ -37,6 +37,10 @@ const projects = defineCollection({
 		featured: z.boolean().default(false),
 		order: z.number().default(0),
 		art: z.string().optional(),
+		// dated build log, rendered as a timeline on the project page
+		log: z
+			.array(z.object({ date: z.coerce.date(), title: z.string(), items: z.array(z.string()).default([]) }))
+			.default([]),
 	}),
 });
 

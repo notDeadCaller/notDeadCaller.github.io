@@ -1,7 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
-import ProjectList from '../components/ProjectList.astro';
-import Base from '../layouts/Base.astro';
+import ProjectList from '../../components/ProjectList.astro';
+import Base from '../../layouts/Base.astro';
 
 const blurb = 'Software I have built, from mobile apps to network tools.';
 const projects = (await getCollection('projects')).sort(

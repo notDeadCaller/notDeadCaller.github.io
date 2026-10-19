@@ -1,0 +1,192 @@
+---
+import { getCollection, render } from 'astro:content';
+import Ascii from '../../components/Ascii.astro';
+import Base from '../../layouts/Base.astro';
+import { isoDate } from '../../site';
+
+export async function getStaticPaths() {
+	const projects = await getCollection('projects');
+	return projects.map((project) => ({ params: { slug: project.id }, props: { project } }));
+}
+
+const { project } = Astro.props;
+const { title, description, year, stack, repo, link, status, art, log } = project.data;
+const { Content } = await render(project);
+// log titles allow ~~strikethrough~~, everything else is escaped
+const strike = (text: string) =>
+	text.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`).replace(/~~(.+?)~~/g, '<del>$1</del>');
+---
+
+<Base title={title} description={description}>
+	<div class="project-hero"><Ascii art="cover" seed={project.id} motif={art} dissolve /></div>
+
+	<article class="case">
+		<header class="case-head">
+			<p class="kicker"><a href="/projects/">Projects</a></p>
+			<h1 data-decode>{title}</h1>
+			<p class="lede">{description}</p>
+			<dl class="facts">
+				<div><dt>Year</dt><dd>{year}</dd></div>
+				{stack.length > 0 && <div><dt>Stack</dt><dd>{stack.join(', ')}</dd></div>}
+				{status && <div><dt>Status</dt><dd>{status}</dd></div>}
+				{repo && <div><dt>Source</dt><dd><a href={repo}>GitHub</a></dd></div>}
+				{link && <div><dt>Live</dt><dd><a href={link}>{new URL(link).host}</a></dd></div>}
+			</dl>
+		</header>
+
+		<div class="prose">
+			<Content />
+		</div>
+
+		{
+			log.length > 0 && (
+				<section class="log" aria-labelledby="log">
+					<h2 id="log">Build log</h2>
+					<ol>
+						{log.map((entry) => (
+							<li>
+								<time datetime={entry.date.toISOString()}>{isoDate(entry.date)}</time>
+								<h3 set:html={strike(entry.title)} />
+								{entry.items.length > 0 && (
+									<ul>
+										{entry.items.map((item) => (
+											<li>{item}</li>
+										))}
+									</ul>
+								)}
+							</li>
+						))}
+					</ol>
+				</section>
+			)
+		}
+
+		<p class="back"><a href="/projects/">All projects</a></p>
+	</article>
+</Base>
+
+<style>
+	.project-hero {
+		height: clamp(12rem, 28vw, 22rem);
+		margin-inline: calc(var(--gutter) * -1);
+		cursor: crosshair;
+	}
+
+	.case {
+		max-width: var(--measure);
+		margin: 0 auto;
+	}
+
+	.case-head {
+		margin: 1rem 0 3rem;
+	}
+
+	.kicker {
+		margin: 0;
+		font: 600 0.8125rem var(--font-mono);
+	}
+
+	.kicker a {
+		text-decoration: none;
+	}
+
+	h1 {
+		margin: 0.5rem 0 1rem;
+		font-family: var(--font-display);
+		font-size: clamp(3rem, 9vw, 6rem);
+		font-weight: 700;
+		line-height: 0.9;
+		text-transform: uppercase;
+	}
+
+	.lede {
+		margin: 0 0 2rem;
+		font-size: 1.2em;
+		line-height: 1.5;
+		color: var(--muted);
+	}
+
+	.facts {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem 2.5rem;
+		margin: 0;
+		padding: 1rem 0;
+		border-block: 1px solid var(--line);
+	}
+
+	.facts dt {
+		font: 0.6875rem var(--font-mono);
+		color: var(--muted);
+	}
+
+	.facts dd {
+		margin: 0.15rem 0 0;
+		font-size: 0.9375rem;
+		color: var(--text-strong);
+	}
+
+	/* case-file timeline: a hairline spine, a notch per entry */
+	.log {
+		margin-top: 4rem;
+	}
+
+	.log h2 {
+		margin: 0 0 1.5rem;
+		font-family: var(--font-display);
+		font-size: 1.75rem;
+		text-transform: uppercase;
+	}
+
+	.log > ol {
+		margin: 0;
+		padding: 0 0 0 1.5rem;
+		list-style: none;
+		border-left: 1px solid var(--line);
+	}
+
+	.log > ol > li {
+		position: relative;
+		padding-bottom: 2rem;
+	}
+
+	.log > ol > li::before {
+		content: '';
+		position: absolute;
+		left: calc(-1.5rem - 4px);
+		top: 0.45rem;
+		width: 7px;
+		height: 7px;
+		background: var(--accent);
+		clip-path: polygon(0 0, 100% 0, 100% 60%, 60% 100%, 0 100%);
+	}
+
+	.log time {
+		font: 0.75rem var(--font-mono);
+		color: var(--muted);
+	}
+
+	.log h3 {
+		margin: 0.15rem 0 0.5rem;
+		font-family: var(--font-display);
+		font-size: 1.35rem;
+		font-weight: 600;
+		line-height: 1.2;
+	}
+
+	.log ul {
+		margin: 0;
+		padding-left: 1.1rem;
+		font-size: 0.9375rem;
+	}
+
+	.log ul li::marker {
+		color: var(--accent);
+	}
+
+	.back {
+		margin-top: 3rem;
+		padding-top: 1.5rem;
+		border-top: 1px solid var(--line);
+	}
+</style>

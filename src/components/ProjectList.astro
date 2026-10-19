@@ -12,14 +12,13 @@ const { projects } = Astro.props;
 <ol class="projects">
 	{
 		projects.map(({ id, data }) => {
-			const href = data.link ?? data.repo;
 			return (
 				<li class="project">
 					<div class="project-art">
 						<Ascii art="cover" seed={id} motif={data.art} />
 					</div>
 					<div class="project-body">
-						<h3>{href ? <a href={href}>{data.title}</a> : data.title}</h3>
+						<h3><a href={`/projects/${id}/`}>{data.title}</a></h3>
 						<p>{data.description}</p>
 						<p class="project-meta">
 							<span>{data.year}</span>
