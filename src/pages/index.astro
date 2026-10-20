@@ -4,15 +4,18 @@ import Ascii from '../components/Ascii.astro';
 import Feed from '../components/Feed.astro';
 import ProjectList from '../components/ProjectList.astro';
 import Base from '../layouts/Base.astro';
+import { person } from '../data/resume';
 import { getFeed, SITE } from '../site';
 
 const latest = (await getFeed()).slice(0, 5);
+const { '@context': context, ...author } = person;
+const website = { '@context': context, '@type': 'WebSite', name: SITE.title, url: person.url, description: SITE.description, author };
 const projects = (await getCollection('projects', ({ data }) => data.featured)).sort(
 	(a, b) => a.data.order - b.data.order || b.data.year - a.data.year,
 );
 ---
 
-<Base>
+<Base schema={website}>
 	<section class="hero">
 		<h1 class="sr-only">{SITE.title}</h1>
 		<div class="hero-art"><Ascii art="wordmark" text={SITE.title} dissolve /></div>
@@ -61,6 +64,7 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 </Base>
 
 <script>
+	import { track } from '../lib/analytics';
 	import { portrait, portraitMorph } from '../lib/portrait';
 
 	document.addEventListener('astro:page-load', () => {
@@ -93,6 +97,7 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 				morph.style.height = `${Math.max(lead.offsetHeight, Math.round(wrap.clientWidth * 1.2))}px`;
 				toggle ??= portraitMorph(morph, lead, (state) => state === 'text' && !shown && reset());
 				wrap.classList.add('is-face');
+				track('portrait_morph');
 			}
 			// animate between two fixed heights; auto comes back once the text has settled
 			wrap.style.height = `${from}px`;

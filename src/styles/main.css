@@ -8,35 +8,15 @@
 	--text: #d6d7d1;
 	--text-strong: #f4f4ef;
 	--muted: #9ba1ab;
-	--accent: #93ffd7;
-	--accent-2: #bb8cf0;
-	--hot: #ff2a6d;
+	--accent: #fcee0a;
+	--accent-2: #00e6f6;
+	--hot: #ff003c;
 	--underline: color-mix(in srgb, var(--accent-2) 65%, transparent);
 	--gutter: 1.25rem;
 	--font-display: var(--font-shoulders);
 	--font-body: var(--font-serif);
 	--font-mono: var(--font-fragment);
 	--measure: 64ch;
-}
-
-/* ponytail: alternate "hud" pairing for the dev-only picker */
-[data-type='hud'] {
-	--font-display: var(--font-science);
-	--font-body: var(--font-atkinson);
-	--font-mono: var(--font-martian);
-	--measure: 68ch;
-}
-
-/* ponytail: palette shoot-out, keep one and fold it into :root */
-[data-palette='nightcity'] {
-	--accent: #fcee0a;
-	--accent-2: #00e6f6;
-	--hot: #ff003c;
-}
-[data-palette='dedsec'] {
-	--accent: #ff3cac;
-	--accent-2: #2de2e6;
-	--hot: #ff3cac;
 }
 
 @media (min-width: 48em) {

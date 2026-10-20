@@ -1,6 +1,6 @@
 ---
 import { getCollection } from 'astro:content';
-import { resume } from '../data/resume';
+import { person, resume } from '../data/resume';
 import Base from '../layouts/Base.astro';
 
 const projects = (await getCollection('projects', ({ data }) => data.featured)).sort((a, b) => a.data.order - b.data.order);
@@ -11,7 +11,7 @@ const timeline = [
 ];
 ---
 
-<Base title="Resume" description={`${resume.name}: ${resume.headline}`}>
+<Base title="Resume" description={`${resume.name}: ${resume.headline}`} schema={person}>
 	<article class="resume">
 		<header class="head">
 			<h1>{resume.name} <span class="handle">{resume.handle}</span></h1>
@@ -325,7 +325,6 @@ const timeline = [
 
 		:global(.site-header),
 		:global(.site-footer),
-		:global(.picker),
 		.no-print {
 			display: none !important;
 		}

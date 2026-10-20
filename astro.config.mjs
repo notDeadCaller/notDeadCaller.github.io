@@ -51,11 +51,6 @@ export default defineConfig({
 		shikiConfig: { theme: 'poimandres', transformers: [codeFrame] },
 	},
 	fonts: [
-		// "hud" pairing
-		fontsource('Science Gothic', '--font-science', ['sans-serif'], ['400 900']),
-		fontsource('Atkinson Hyperlegible Next', '--font-atkinson', ['sans-serif'], ['400 700'], true),
-		fontsource('Martian Mono', '--font-martian', ['monospace'], ['400 600']),
-		// ponytail: "dossier" pairing for the shoot-out; drop whichever loses.
 		fontsource('Big Shoulders', '--font-shoulders', ['sans-serif'], ['500 900']),
 		fontsource('Source Serif 4', '--font-serif', ['serif'], ['400 700'], true),
 		fontsource('Fragment Mono', '--font-fragment', ['monospace'], [400]),

@@ -94,3 +94,17 @@ export const resume = {
 		},
 	],
 };
+
+/** schema.org Person for search engines, built from the resume so the two never disagree. */
+export const person = {
+	'@context': 'https://schema.org',
+	'@type': 'Person',
+	name: resume.name,
+	alternateName: resume.handle,
+	url: 'https://notdeadcaller.github.io/',
+	jobTitle: resume.experience[0].role,
+	worksFor: { '@type': 'Organization', name: resume.experience[0].org, url: 'https://techtel.in/' },
+	alumniOf: { '@type': 'CollegeOrUniversity', name: 'Heritage Institute of Technology' },
+	address: { '@type': 'PostalAddress', addressLocality: 'Kolkata', addressCountry: 'IN' },
+	sameAs: resume.links.filter(({ href }) => href.startsWith('https://')).map(({ href }) => href),
+};

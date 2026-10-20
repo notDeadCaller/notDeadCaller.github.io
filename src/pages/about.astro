@@ -1,9 +1,12 @@
 ---
+import { person } from '../data/resume';
 import Base from '../layouts/Base.astro';
 import { SITE } from '../site';
+
+const { '@context': context, ...profile } = person;
 ---
 
-<Base title="About" description="About Avishek, also known as notDeadCaller.">
+<Base title="About" description="About Avishek, also known as notDeadCaller." schema={{ '@context': context, '@type': 'ProfilePage', mainEntity: profile }}>
 	<header class="page-head">
 		<h1 data-decode>About</h1>
 		<p>Avishek, also known as notDeadCaller. Based in Kolkata.</p>

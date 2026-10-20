@@ -18,6 +18,7 @@
     "@fontsource/big-shoulders": "^5.3.0",
     "@fontsource/fragment-mono": "^5.3.0",
     "astro": "^7.0.3",
+    "posthog-js": "1.436.1",
     "satori": "^0.63.0",
     "sharp": "^0.34.3"
   },

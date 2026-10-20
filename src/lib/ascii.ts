@@ -270,9 +270,6 @@ export function mount(canvas: HTMLCanvasElement, options: Options) {
 	seen.observe(canvas);
 	const sized = new ResizeObserver(resize);
 	sized.observe(canvas);
-	// palette switches repaint with the new tones
-	const themed = new MutationObserver(resize);
-	themed.observe(document.documentElement, { attributeFilter: ['data-palette'] });
 	document.fonts.ready.then(resize);
 
 	// the client router swaps pages in place: stop and let go before this canvas is thrown away
@@ -283,7 +280,6 @@ export function mount(canvas: HTMLCanvasElement, options: Options) {
 			cancelAnimationFrame(raf);
 			seen.disconnect();
 			sized.disconnect();
-			themed.disconnect();
 		},
 		{ once: true },
 	);
