@@ -11,6 +11,7 @@ export async function getStaticPaths() {
 		{ route: 'projects', kicker: 'Projects', title: 'Projects', description: 'Software I have built, from mobile apps to network tools.', seed: 'projects' },
 		{ route: 'resume', kicker: 'Resume', title: resume.name, description: resume.summary, seed: 'resume' },
 		{ route: 'about', kicker: 'About', title: 'About', description: 'Avishek, also known as notDeadCaller. Based in Kolkata.', seed: 'about' },
+		{ route: 'uses', kicker: 'Uses', title: 'Uses', description: 'The hardware, operating systems and tools Avishek works with.', seed: 'uses' },
 	];
 	for (const section of Object.keys(SECTIONS) as Section[]) {
 		const { title, label, blurb } = SECTIONS[section];

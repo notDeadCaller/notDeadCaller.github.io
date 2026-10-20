@@ -1,0 +1,117 @@
+---
+import Base from '../layouts/Base.astro';
+
+const DESCRIPTION = 'The hardware, operating systems and tools Avishek works with.';
+
+// each item: what it is, then the detail that matters
+const groups = [
+	{
+		heading: 'Hardware',
+		items: [
+			['HP Omen 16', 'Ryzen 7 7840HS, RTX 4060, 16 GB DDR5‑5600, 1 TB SSD. The main machine.'],
+			['Home desktop', 'Ryzen 3 2200G, GTX 1050 Ti, 16 GB DDR4‑3400, 1 TB SSD.'],
+			['Raspberry Pi Pico', 'RP2040 microcontroller, for BadUSB experiments.'],
+			['Acer flash drive', '16 GB, USB 3.'],
+		],
+	},
+	{
+		heading: 'Operating systems',
+		items: [
+			['Windows 11 and 10', 'Day to day.'],
+			['Kali Linux', 'Under WSL 2 and in VirtualBox.'],
+			['Whonix and Ubuntu', 'VirtualBox VMs.'],
+			['Tails', 'Live from USB.'],
+		],
+	},
+	{
+		heading: 'Security',
+		items: [
+			['Burp Suite', 'Web application testing.'],
+			['ffuf', 'Content discovery and fuzzing, with SecLists.'],
+			['Ghidra', 'Reverse engineering.'],
+			['Wireshark', 'Packet capture and analysis.'],
+			['ngrok and cloudflared', 'Exposing a local listener to the internet during a test.'],
+			['Proton VPN and Mullvad Browser', 'A VPN, and a browser built to resist fingerprinting.'],
+		],
+	},
+	{
+		heading: 'Development',
+		items: [
+			['VS Code', 'Solarized Dark.'],
+			['Claude Code and Antigravity', 'AI pair programming.'],
+			['Windows Terminal', 'PowerShell, plus a Kali profile.'],
+			['Languages', 'Java, C, Python, Go, Kotlin, SQL.'],
+			['Docker and VirtualBox', 'Labs and throwaway environments.'],
+			['Ollama', 'Local models on the RTX 4060.'],
+			['Android Studio', 'Android apps.'],
+		],
+	},
+	{
+		heading: 'Everything else',
+		items: [
+			['Firefox', 'Main browser.'],
+			['Proton Pass', 'Passwords.'],
+			['Uplink', "Introversion's hacking sim from 2001."],
+		],
+	},
+];
+---
+
+<Base title="Uses" description={DESCRIPTION}>
+	<header class="page-head">
+		<h1 data-decode>Uses</h1>
+		<p>{DESCRIPTION}</p>
+	</header>
+
+	<div class="prose">
+		{
+			groups.map(({ heading, items }) => (
+				<section>
+					<h2>{heading}</h2>
+					<dl>
+						{items.map(([name, detail]) => (
+							<div>
+								<dt>{name}</dt>
+								<dd>{detail}</dd>
+							</div>
+						))}
+					</dl>
+				</section>
+			))
+		}
+	</div>
+</Base>
+
+<style>
+	section:first-child h2 {
+		margin-top: 0;
+	}
+
+	dl {
+		margin: 0;
+	}
+
+	dl div {
+		display: grid;
+		grid-template-columns: 14rem 1fr;
+		gap: 0.25rem 1.5rem;
+		padding: 0.6rem 0;
+		border-bottom: 1px solid var(--line);
+	}
+
+	dt {
+		color: var(--text-strong);
+		font-weight: 600;
+	}
+
+	dd {
+		margin: 0;
+		color: var(--muted);
+	}
+
+	@media (max-width: 40em) {
+		dl div {
+			grid-template-columns: 1fr;
+		}
+	}
+</style>
