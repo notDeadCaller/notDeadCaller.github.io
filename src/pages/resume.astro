@@ -20,7 +20,7 @@ const timeline = [
 				<span>{resume.location}</span>
 				{resume.links.map(({ label, href }) => <a href={href}>{label}</a>)}
 			</p>
-			<button type="button" class="print no-print" onclick="print()">Download PDF</button>
+			<button type="button" class="print no-print" data-print>Download PDF</button>
 		</header>
 
 		<p class="summary">{resume.summary}</p>
@@ -130,6 +130,13 @@ const timeline = [
 		</section>
 	</article>
 </Base>
+
+<script>
+	// delegated, so it survives client-side navigation; no inline handler, which the CSP blocks
+	document.addEventListener('click', (event) => {
+		if (event.target instanceof Element && event.target.closest('[data-print]')) print();
+	});
+</script>
 
 <style>
 	.resume {

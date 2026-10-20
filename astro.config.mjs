@@ -41,6 +41,8 @@ const codeFrame = {
 export default defineConfig({
 	site: 'https://notdeadcaller.github.io',
 	integrations: [mdx(), sitemap()],
+	// never inline scripts or assets: the CSP only allows files served from the site itself
+	vite: { build: { assetsInlineLimit: 0 } },
 	redirects: {
 		'/blog': '/writeups/',
 		'/blog/brute-forcing-otp-no-rate-limit': '/writeups/brute-forcing-otp-no-rate-limit/',
