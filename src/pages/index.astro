@@ -19,14 +19,18 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 	</section>
 
 	<section class="intro">
+		<div class="intro-portrait" aria-hidden="true"><canvas class="ascii" data-portrait></canvas></div>
 		<p class="now">
 			<span class="live" aria-hidden="true"></span>
-			Currently Founding Security Engineer at <a href="https://opzami.com/">Opzami</a>
+			<span>Currently Founding Security Engineer at <a href="https://opzami.com/">Opzami</a></span>
 		</p>
-		<p class="intro-lead">
-			I'm Avishek, a cybersec undergrad and systems developer based out of Kolkata, testing and exploring sh*t worth
-			probing.
-		</p>
+		<div class="intro-face">
+			<p class="intro-lead">
+				I'm Avishek, a cybersec undergrad and systems developer based out of Kolkata, testing and exploring sh*t worth
+				probing.
+			</p>
+			<canvas class="ascii intro-morph" hidden aria-hidden="true"></canvas>
+		</div>
 		<ul class="intro-links">
 			<li><a href="/writeups/">Read the writeups</a></li>
 			<li><a href="/resume/">See my resume</a></li>
@@ -56,6 +60,56 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 	}
 </Base>
 
+<script>
+	import { portrait, portraitMorph } from '../lib/portrait';
+
+	document.addEventListener('astro:page-load', () => {
+		const still = document.querySelector<HTMLCanvasElement>('canvas[data-portrait]');
+		const wrap = document.querySelector<HTMLElement>('.intro-face');
+		const lead = wrap?.querySelector<HTMLElement>('.intro-lead');
+		const morph = wrap?.querySelector<HTMLCanvasElement>('.intro-morph');
+		if (!still || !wrap || !lead || !morph) return;
+		portrait(still);
+
+		// narrow screens have no room beside the intro: tapping it turns the text into the face instead.
+		// purely decorative, so it stays out of the accessibility tree and the text is always there
+		const wide = matchMedia('(min-width: 60em)');
+		const done = new AbortController();
+		document.addEventListener('astro:before-swap', () => done.abort(), { once: true });
+		let toggle: ((show: boolean) => void) | undefined;
+		let shown = false;
+		const reset = () => {
+			wrap.classList.remove('is-face');
+			wrap.style.height = '';
+			setTimeout(() => {
+				if (!shown) morph.hidden = true;
+			}, 400);
+		};
+		const set = (show: boolean) => {
+			shown = show;
+			const from = wrap.offsetHeight;
+			if (show) {
+				morph.hidden = false;
+				morph.style.height = `${Math.max(lead.offsetHeight, Math.round(wrap.clientWidth * 1.2))}px`;
+				toggle ??= portraitMorph(morph, lead, (state) => state === 'text' && !shown && reset());
+				wrap.classList.add('is-face');
+			}
+			// animate between two fixed heights; auto comes back once the text has settled
+			wrap.style.height = `${from}px`;
+			void wrap.offsetHeight;
+			wrap.style.height = `${show ? morph.offsetHeight : lead.offsetHeight}px`;
+			toggle?.(show);
+		};
+		wrap.addEventListener('click', () => !wide.matches && set(!shown), { signal: done.signal });
+		wide.addEventListener('change', () => {
+			if (!shown) return;
+			shown = false;
+			toggle?.(false);
+			reset();
+		}, { signal: done.signal });
+	});
+</script>
+
 <style>
 	.hero {
 		position: relative;
@@ -74,11 +128,60 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 		margin: 3rem 0 0;
 	}
 
-	@media (min-width: 60em) {
-		.intro {
-			grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
-			/* the lead sits centred against the link list, its lines between the list's borders */
-			align-items: center;
+	/* the morph canvas takes no display value, so [hidden] and the wide-screen rule keep working */
+	.intro-portrait canvas,
+	.intro-morph {
+		width: 100%;
+		height: 100%;
+		font-family: var(--font-mono);
+	}
+
+	.intro-portrait canvas {
+		display: block;
+	}
+
+	/* on narrow screens the intro text is the switch for the portrait */
+	.intro-face {
+		position: relative;
+		overflow: hidden;
+		transition: height 0.9s cubic-bezier(0.65, 0, 0.35, 1);
+	}
+
+	@media (max-width: 59.99em) {
+		.intro-portrait {
+			display: none;
+		}
+
+		.intro-face {
+			cursor: pointer;
+			-webkit-tap-highlight-color: transparent;
+		}
+	}
+
+	.intro-lead,
+	.intro-morph {
+		transition: opacity 0.3s;
+	}
+
+	.intro-morph {
+		position: absolute;
+		top: 0;
+		left: 0;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.intro-face.is-face .intro-lead {
+		opacity: 0;
+	}
+
+	.intro-face.is-face .intro-morph {
+		opacity: 1;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.intro-face {
+			transition: none;
 		}
 	}
 
@@ -99,6 +202,7 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 
 	/* a small status light, like an online indicator on a HUD */
 	.live {
+		flex: none;
 		width: 0.5rem;
 		height: 0.5rem;
 		background: var(--accent);
@@ -152,5 +256,40 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 	.intro-links a:hover::after {
 		color: var(--accent);
 		transform: translate(2px, -2px);
+	}
+
+	/* wide screens: portrait | lead | links. Last in the file so it overrides the base rules */
+	@media (min-width: 60em) {
+		.intro {
+			grid-template-columns: 17rem minmax(0, 2fr) minmax(0, 1fr);
+			/* the lead sits centred against the link list, its lines between the list's borders */
+			align-items: center;
+		}
+
+		.intro-portrait {
+			display: block;
+			grid-row: 1 / span 2;
+			align-self: end;
+			height: 21rem;
+			/* a soft plate of background so the hero's falling characters don't run through the face */
+			background: var(--bg);
+			box-shadow: 0 0 2rem 1.5rem var(--bg);
+		}
+
+		.now {
+			grid-column: 2 / -1;
+		}
+
+		.intro-face {
+			grid-column: 2;
+		}
+
+		.intro-links {
+			grid-column: 3;
+		}
+
+		.intro-morph {
+			display: none;
+		}
 	}
 </style>

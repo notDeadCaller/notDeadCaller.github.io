@@ -50,6 +50,8 @@ const projects = defineCollection({
 		link: z.url().optional(),
 		status: z.enum(['active', 'shipped', 'archived', 'wip']).optional(),
 		featured: z.boolean().default(false),
+		/** my favourite: a highlighted card in project lists */
+		favourite: z.boolean().default(false),
 		order: z.number().default(0),
 		art: z.string().optional(),
 		// dated build log, rendered as a timeline on the project page

@@ -287,4 +287,5 @@ export function mount(canvas: HTMLCanvasElement, options: Options) {
 		},
 		{ once: true },
 	);
+	return { draw };
 }

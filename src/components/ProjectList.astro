@@ -13,7 +13,7 @@ const { projects } = Astro.props;
 	{
 		projects.map(({ id, data }) => {
 			return (
-				<li class="project">
+				<li class:list={['project', { favourite: data.favourite }]}>
 					<div class="project-art">
 						<Ascii art="cover" seed={id} motif={data.art} />
 					</div>
@@ -24,6 +24,7 @@ const { projects } = Astro.props;
 							<span>{data.year}</span>
 							{data.stack.length > 0 && <span>{data.stack.join(' / ')}</span>}
 							{data.status && <span>{data.status}</span>}
+							{data.favourite && <span class="fav">Favourite</span>}
 						</p>
 					</div>
 				</li>

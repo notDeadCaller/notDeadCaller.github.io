@@ -6,6 +6,7 @@ year: 2025
 stack: ['C', 'POSIX threads', 'liboqs', 'CRYSTALS-Kyber', 'CRYSTALS-Dilithium', 'AES-256-GCM', 'ncurses']
 repo: 'https://github.com/notDeadCaller/AnonComm'
 featured: true
+favourite: true
 order: 2
 log:
   - date: 2025-09-03

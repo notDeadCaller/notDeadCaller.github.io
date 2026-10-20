@@ -504,6 +504,32 @@ img {
 	clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
 }
 
+/* the favourite: a thin neon edge that follows the cut corner, brighter on hover */
+.project.favourite .project-art {
+	background: color-mix(in srgb, var(--accent-2) 45%, transparent);
+	transition: background 0.3s;
+}
+
+.project.favourite .project-art::before {
+	content: '';
+	position: absolute;
+	inset: 1px;
+	background: var(--bg-raised);
+	clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+}
+
+.project.favourite .project-art canvas {
+	position: relative;
+}
+
+.project.favourite:hover .project-art {
+	background: var(--accent-2);
+}
+
+.project-meta .fav {
+	color: var(--accent-2);
+}
+
 .project h3 {
 	margin: 0 0 0.5rem;
 	font-family: var(--font-display);
