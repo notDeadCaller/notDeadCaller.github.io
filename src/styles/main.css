@@ -163,22 +163,53 @@ img {
 	border-bottom: 1px solid var(--line);
 }
 
-/* Site-wide pixel-glove cursors (public/cursors). Default hand everywhere; the pointing hand on
-   anything clickable; a caret stays where text is typed. !important beats components' own
-   cursor:pointer, but not the inline cursor the art swaps in on click (that's set on the element). */
+/* Site-wide pixel-glove cursor language (public/cursors): one gesture per action.
+   drag = idle/default, hook = text, point = clickable, splay = pressing a control,
+   palm = over the grabbable ASCII art, fist = grabbing it. Image cursors carry a keyword
+   fallback. The interactive rules use !important so a component's own cursor:pointer can't
+   win; the :active rules are more specific, so a press still changes the cursor. */
 html {
 	cursor: url('/cursors/drag.svg') 3 2, auto;
 }
 
+/* text: readable, selectable copy. Block elements only, so an inline link keeps its own cursor
+   and emphasis (em/strong/code) inside text just inherits this. */
+p,
+h1, h2, h3, h4, h5, h6,
+li, dt, dd,
+blockquote, pre, figcaption, caption, th, td,
+.lede, .summary, .tldr, .prose {
+	cursor: url('/cursors/hook.svg') 6 2, text;
+}
+
+/* clickable */
 a,
 button,
 summary,
 label[for],
 [role='button'],
-[tabindex]:not([tabindex='-1']) {
+input[type='range'] {
 	cursor: url('/cursors/point.svg') 4 2, pointer !important;
 }
 
+/* pressing a control: the hand opens */
+a:active,
+button:active,
+summary:active,
+[role='button']:active {
+	cursor: url('/cursors/splay.svg') 14 15, pointer !important;
+}
+
+/* the interactive ASCII art: open hand to grab, closed fist while pressing */
+[data-hands] {
+	cursor: url('/cursors/palm.svg') 9 17, grab;
+}
+
+[data-hands]:active {
+	cursor: url('/cursors/fist.svg') 10 13, grabbing;
+}
+
+/* typing stays a caret; disabled stays blocked */
 input:is([type='text'], [type='search'], [type='email'], [type='url'], [type='password'], [type='number'], [type='tel']),
 textarea,
 [contenteditable='true'] {
@@ -188,11 +219,6 @@ textarea,
 :disabled,
 [aria-disabled='true'] {
 	cursor: not-allowed !important;
-}
-
-/* clickable ASCII art: starts on the pointing hand, then the script swaps a random one in per click */
-[data-hands] {
-	cursor: url('/cursors/point.svg') 4 2, pointer;
 }
 
 /* wordmark: a yellow highlight block wipes in on hover with a cyan misregistered copy,

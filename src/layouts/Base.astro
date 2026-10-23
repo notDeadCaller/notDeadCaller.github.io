@@ -156,30 +156,15 @@ const CSP = [
 			};
 			document.addEventListener('astro:page-load', tick);
 
-			// pixel hands (public/cursors) with their hotspots: [data-hands] art starts on the pointing one,
-			// and each click picks another
-			const HANDS = [
-				['point', 4, 2],
-				['palm', 9, 17],
-				['fist', 10, 13],
-				['splay', 14, 15],
-				['hook', 6, 2],
-				['drag', 3, 2],
-			] as const;
-			document.addEventListener('astro:page-load', () => {
-				const areas = document.querySelectorAll<HTMLElement>('[data-hands]');
-				if (!areas.length || !matchMedia('(pointer: fine)').matches) return;
-				// fetch them all now so a swap never flashes the fallback
-				for (const [name] of HANDS) new Image().src = `/cursors/${name}.svg`;
-				for (const area of areas) {
-					let hand = 0;
-					area.addEventListener('pointerdown', () => {
-						hand = (hand + 1 + Math.floor(Math.random() * (HANDS.length - 1))) % HANDS.length;
-						const [name, x, y] = HANDS[hand];
-						area.style.cursor = `url('/cursors/${name}.svg') ${x} ${y}, pointer`;
-					});
-				}
-			});
+			// the glove cursors (public/cursors) are mapped to actions in CSS; warm the images once on a
+			// pointer device so the first hover of each gesture never flashes the keyword fallback
+			if (matchMedia('(pointer: fine)').matches) {
+				const warm = () => {
+					for (const c of ['drag', 'hook', 'point', 'palm', 'fist', 'splay']) new Image().src = `/cursors/${c}.svg`;
+				};
+				if ('requestIdleCallback' in window) requestIdleCallback(warm);
+				else setTimeout(warm, 1500);
+			}
 			setInterval(tick, 15000);
 		</script>
 	</body>
