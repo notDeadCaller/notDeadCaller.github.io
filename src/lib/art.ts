@@ -27,20 +27,31 @@ function norm(x: number, y: number, f: Field) {
 	return { u: (x + 0.5 - f.cols / 2) / half, v: ((y + 0.5) * f.aspect - half) / half, cu: 1 / half, cv: f.aspect / half };
 }
 
-/** A word drawn out of characters: flowing fill, scanner lens under the cursor, click shockwave, row tears. */
-export function wordmark(canvas: HTMLCanvasElement, text: string, { cell = 9, glitch = 0.05, dissolve = false } = {}) {
+/**
+ * A word drawn out of characters: flowing fill, scanner lens under the cursor, click shockwave, row tears.
+ * With `flip`, each click swaps to the other word, the shockwave rewriting the cells as it passes.
+ */
+export function wordmark(canvas: HTMLCanvasElement, text: string, { cell = 9, glitch = 0.05, dissolve = false, flip = '' } = {}) {
 	const font = cssFont('--font-display');
-	const fill = text.replace(/\s/g, '');
-	document.fonts.load(`800 64px ${font}`, text).finally(() =>
-		mount(canvas, {
+	const words = flip ? [text, flip] : [text];
+	const fills = words.map((word) => word.replace(/\s/g, ''));
+	const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+	// the word on screen, the one the shockwave is replacing, and where the click landed
+	let shown = 0;
+	let from = 0;
+	let pressed = false;
+	const origin = { x: 0, y: 0 };
+	document.fonts.load(`800 64px ${font}`, words.join(' ')).finally(() => {
+		const handle = mount(canvas, {
 			cell,
 			tones: TONES,
 			dissolve,
 			setup(field) {
 				// two lines whenever the box is tall enough, letters read better big
 				const wide = field.cols / (field.rows * field.aspect) > 4.5;
-				const lines = !wide && text.length > 8 ? splitWord(text) : text;
-				field.data.mask = textMask(lines, field.cols, field.rows, field.aspect, font);
+				field.data.masks = words.map((word) =>
+					textMask(!wide && word.length > 8 ? splitWord(word) : word, field.cols, field.rows, field.aspect, font),
+				);
 				// per-cell randomness is fixed for the page, so compute it once instead of every frame
 				const noise = new Float32Array(field.cols * field.rows);
 				for (let i = 0; i < noise.length; i++) noise[i] = hash(i % field.cols, Math.floor(i / field.cols));
@@ -56,10 +67,17 @@ export function wordmark(canvas: HTMLCanvasElement, text: string, { cell = 9, gl
 				const tears = field.data.tears as Int8Array;
 				const tearing = hash(tick, 1) < tearChance;
 				for (let y = 0; y < rows; y++) tears[y] = tearing && hash(y, tick) < 0.3 ? Math.round((hash(y, tick + 9) - 0.5) * 10) : 0;
-				const ringAge = t - p.pressedAt;
+				if (pressed) {
+					pressed = false;
+					origin.x = p.x;
+					origin.y = p.y;
+				}
+				// the ring runs until it has crossed the farthest corner, so a flip always completes
+				const reach = Math.hypot(Math.max(origin.x, cols - origin.x), Math.max(origin.y, rows - origin.y) * field.aspect);
+				const ringR = (t - p.pressedAt) * 140;
 				field.data.f = {
-					ringOn: ringAge < 1.5,
-					ringR: ringAge * 140,
+					ringOn: ringR < reach + 3,
+					ringR,
 					radius: Math.min(24, cols / 5),
 					sweepX: p.active ? -99 : ((t % 7) / 7) * cols * 1.6 - cols * 0.3,
 					flick: Math.floor(t * 10),
@@ -69,18 +87,23 @@ export function wordmark(canvas: HTMLCanvasElement, text: string, { cell = 9, gl
 			},
 			shader(x, y, field, out) {
 				const { cols, rows, time: t, aspect, pointer: p } = field;
-				const mask = field.data.mask as Float32Array;
+				const masks = field.data.masks as Float32Array[];
 				const noise = field.data.noise as Float32Array;
 				const f = field.data.f as { ringOn: boolean; ringR: number; radius: number; sweepX: number; flick: number; flow: number; hex: number };
 				const tear = (field.data.tears as Int8Array)[y];
 
-				// distance to the pointer only matters while the lens or a shockwave is live
+				// distance to the pointer only matters while the lens is live, to the click while a shockwave is
 				let d = 1e9;
 				let dx = 0;
-				if (p.active || f.ringOn) {
+				if (p.active) {
 					dx = x - p.x;
 					d = Math.hypot(dx, (y - p.y) * aspect);
 				}
+				const dr = f.ringOn ? Math.hypot(x - origin.x, (y - origin.y) * aspect) : 1e9;
+				// inside the ring the new word, outside it the old one still
+				const word = dr < f.ringR || !f.ringOn || reduced ? shown : from;
+				const mask = masks[word];
+				const fill = fills[word];
 				const radius = f.radius;
 				const lens = p.active && d < radius;
 				let sx = x - tear;
@@ -96,7 +119,7 @@ export function wordmark(canvas: HTMLCanvasElement, text: string, { cell = 9, gl
 				const cov = ix >= 0 && ix < cols && iy >= 0 && iy < rows ? mask[iy * cols + ix] : 0;
 
 				// shockwave ring after a click, idle sweep when nobody is pointing
-				const ring = f.ringOn && Math.abs(d - f.ringR) < 2.5;
+				const ring = f.ringOn && Math.abs(dr - f.ringR) < 2.5;
 				const sweep = Math.abs(x - f.sweepX) < 1.5;
 
 				if (ring) {
@@ -144,14 +167,26 @@ export function wordmark(canvas: HTMLCanvasElement, text: string, { cell = 9, gl
 					out.tone = 0;
 				}
 			},
-		}),
-	);
+		});
+		canvas.parentElement?.addEventListener('pointerdown', () => {
+			pressed = true;
+			if (!flip) return;
+			from = shown;
+			shown = 1 - shown;
+			// no animation loop under reduced motion: swap and repaint once
+			if (reduced) handle?.draw();
+		});
+	});
 }
 
 function splitWord(text: string) {
-	// "notDeadCaller" -> "notDead\nCaller": break before the capital nearest the middle
-	const caps = [...text.matchAll(/[A-Z]/g)].map((m) => m.index);
-	const mid = caps.sort((a, b) => Math.abs(a - text.length / 2) - Math.abs(b - text.length / 2))[0];
+	// "h3770 fr13nd" -> "h3770\nfr13nd" at the space nearest the middle,
+	// "notDeadCaller" -> "notDead\nCaller" before the capital nearest the middle
+	const nearest = (marks: (number | undefined)[]) =>
+		marks.sort((a = 0, b = 0) => Math.abs(a - text.length / 2) - Math.abs(b - text.length / 2))[0];
+	const space = nearest([...text.matchAll(/ /g)].map((m) => m.index));
+	if (space) return `${text.slice(0, space)}\n${text.slice(space + 1)}`;
+	const mid = nearest([...text.matchAll(/[A-Z]/g)].map((m) => m.index));
 	return mid ? `${text.slice(0, mid)}\n${text.slice(mid)}` : text;
 }
 

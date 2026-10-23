@@ -106,5 +106,6 @@ export const person = {
 	worksFor: { '@type': 'Organization', name: resume.experience[0].org, url: 'https://techtel.in/' },
 	alumniOf: { '@type': 'CollegeOrUniversity', name: 'Heritage Institute of Technology' },
 	address: { '@type': 'PostalAddress', addressLocality: 'Kolkata', addressCountry: 'IN' },
-	sameAs: resume.links.filter(({ href }) => href.startsWith('https://')).map(({ href }) => href),
+	// Bugcrowd stays off the resume itself (only low-severity finds so far) but still ties the identities together
+	sameAs: [...resume.links.filter(({ href }) => href.startsWith('https://')).map(({ href }) => href), 'https://bugcrowd.com/h/thev123'],
 };
