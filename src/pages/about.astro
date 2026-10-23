@@ -6,7 +6,7 @@ import { SITE } from '../site';
 const { '@context': context, ...profile } = person;
 ---
 
-<Base title="About" description="About me?." schema={{ '@context': context, '@type': 'ProfilePage', mainEntity: profile }}>
+<Base title="About" description="About me" schema={{ '@context': context, '@type': 'ProfilePage', mainEntity: profile }}>
 	<header class="page-head">
 		<h1 data-decode>About</h1>
 		<p>Me, me and more me.</p>
@@ -14,10 +14,10 @@ const { '@context': context, ...profile } = person;
 
 	<div class="prose">
 		<p>
-			I work in systems and security and mostly black-box testing of web apps what the application exposes. I am most interested in small business logic flaws.
+			I work in systems and security and mostly black-box testing of web apps and any other rabbit hole which excites me. I am most interested in small business logic flaws.
 		</p>
 		<p>
-			Speaking of bounties, I've found a couple of bugs in live engagements (<a href="https://bugcrowd.com/h/thev123">Bugcrowd</a>) but still yearn for an <em>original</em>, <em>vetted</em> P>5 finding soon :<
+			Speaking of bounties, I've found a couple of bugs in live engagements (<a href="https://bugcrowd.com/h/thev123">Bugcrowd</a>) but still yearn for an <em>original</em>, <em>vetted</em> P<5 finding soon :<
 		</p>
 		<p>
 			I also build software. Recent projects include an Android safety app, a private chat over TCP using
