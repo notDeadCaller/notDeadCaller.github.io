@@ -25,6 +25,10 @@ const sky = notes.map((n) => ({
 // render each bite-sized note once, hidden, so a sticky note can show it without a round trip
 const bodies = await Promise.all(notes.filter((n) => sizeOf(n) !== 'giant').map(async (n) => ({ note: n, Content: (await render(n)).Content })));
 
+// a short diegetic coordinate per note for the sticky header: SYS-NN · SIZE
+const coordOf = new Map(
+	notes.map((n, i) => [n.id, `SYS-${String(Math.floor(i / SYSTEM_SIZE) + 1).padStart(2, '0')} · ${sizeOf(n).toUpperCase()}`]),
+);
 const systems = Math.max(1, Math.ceil(notes.length / SYSTEM_SIZE));
 const trackVh = Math.max(200, systems * 95);
 
@@ -86,11 +90,15 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 				</div>
 
 				<aside class="sticky" hidden aria-live="polite">
-					<button class="sticky-close" type="button" data-close aria-label="Close note">[ close ]</button>
-					<p class="sticky-kicker">note</p>
-					<h2 class="sticky-title" />
-					<div class="sticky-body prose" />
-					<p class="sticky-meta" />
+					<span class="sticky-tape" aria-hidden="true" />
+					<div class="sticky-paper">
+						<button class="sticky-close" type="button" data-close aria-label="Close note">[ close ]</button>
+						<p class="sticky-kicker">field note</p>
+						<h2 class="sticky-title" />
+						<div class="sticky-body prose" />
+						<p class="sticky-meta"><span class="sticky-date" /><span class="sticky-coord" /></p>
+					</div>
+					<span class="sticky-dogear" aria-hidden="true" />
 				</aside>
 
 				<div class="list-view">
@@ -124,7 +132,7 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 				{/* hidden rendered bodies for the sticky notes */}
 				<div class="note-bodies" hidden>
 					{bodies.map(({ note, Content }) => (
-						<template data-body={note.id} data-title={note.data.title} data-meta={`${isoDate(note.data.pubDate)} · ${note.data.maturity}`} data-url={postUrl(note)}>
+						<template data-body={note.id} data-title={note.data.title} data-meta={`${isoDate(note.data.pubDate)} · ${note.data.maturity}`} data-coord={coordOf.get(note.id)} data-url={postUrl(note)}>
 							<Content />
 						</template>
 					))}
@@ -199,7 +207,8 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 			open = true;
 			label.hidden = true;
 			sticky.querySelector('.sticky-title')!.textContent = tpl.dataset.title ?? n.title;
-			sticky.querySelector('.sticky-meta')!.textContent = tpl.dataset.meta ?? '';
+			sticky.querySelector('.sticky-date')!.textContent = tpl.dataset.meta ?? '';
+			sticky.querySelector('.sticky-coord')!.textContent = tpl.dataset.coord ?? '';
 			const body = sticky.querySelector<HTMLElement>('.sticky-body')!;
 			body.replaceChildren(tpl.content.cloneNode(true));
 			// place the card beside the planet, clamped to the viewport
@@ -384,17 +393,45 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		position: fixed;
 		z-index: 25;
 		width: min(21rem, calc(100vw - 2rem));
-		max-height: 70vh;
+		transform: rotate(-1.3deg);
+		filter: drop-shadow(0 16px 40px rgba(0, 0, 0, 0.6));
+	}
+	.sticky-paper {
+		position: relative;
+		max-height: 72vh;
 		overflow: auto;
-		padding: 1.15rem 1.3rem;
-		background: var(--bg-raised);
+		padding: 1.35rem 1.35rem 1.25rem;
+		background-color: var(--bg-raised);
+		background-image: radial-gradient(1px 1px at 12% 10%, #2c2f38 50%, transparent 51%),
+			radial-gradient(1px 1px at 22% 16%, #262931 50%, transparent 51%);
+		background-repeat: no-repeat;
 		border: 1px solid var(--line);
-		border-left: 2px solid var(--accent);
-		box-shadow: 0 12px 44px rgba(0, 0, 0, 0.65);
+	}
+	.sticky-tape {
+		position: absolute;
+		top: -0.5rem;
+		left: 50%;
+		z-index: 1;
+		width: 4.2rem;
+		height: 1rem;
+		transform: translateX(-50%) rotate(-2deg);
+		background: color-mix(in srgb, var(--accent) 18%, transparent);
+		border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+	}
+	.sticky-dogear {
+		position: absolute;
+		right: 0;
+		bottom: 0;
+		width: 1.3rem;
+		height: 1.3rem;
+		background: linear-gradient(135deg, transparent 48%, var(--line) 49%, var(--bg) 50%);
+		box-shadow: -2px -2px 6px rgba(0, 0, 0, 0.4) inset;
 	}
 	.sticky-close {
-		float: right;
-		margin: -0.1rem -0.2rem 0 0.6rem;
+		position: absolute;
+		top: 0.7rem;
+		right: 0.85rem;
+		z-index: 2;
 		padding: 0;
 		font: 0.72rem var(--font-mono);
 		color: var(--muted);
@@ -402,12 +439,22 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		border: 0;
 	}
 	.sticky-close:hover { color: var(--accent); }
-	.sticky-kicker { margin: 0; font: 0.68rem var(--font-mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
-	.sticky-title { margin: 0.25rem 0 0.7rem; font-size: 1.15rem; line-height: 1.25; font-weight: 500; }
-	.sticky-body { font-size: 0.92rem; line-height: 1.6; }
+	.sticky-kicker { margin: 0 3rem 0 0; font: 0.66rem var(--font-mono); letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+	.sticky-title { margin: 0.35rem 0 0.7rem; font-size: 1.16rem; line-height: 1.24; font-weight: 500; color: var(--accent); }
+	.sticky-body { font-size: 0.92rem; line-height: 1.62; }
 	.sticky-body :first-child { margin-top: 0; }
 	.sticky-body :last-child { margin-bottom: 0; }
-	.sticky-meta { margin: 0.9rem 0 0; padding-top: 0.6rem; border-top: 1px solid var(--line); font: 0.72rem var(--font-mono); color: var(--muted); }
+	.sticky-meta {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.6rem;
+		margin: 0.9rem 0 0;
+		padding-top: 0.6rem;
+		border-top: 1px solid var(--line);
+		font: 0.72rem var(--font-mono);
+		color: var(--muted);
+	}
+	.sticky-coord { color: var(--accent-2); letter-spacing: 0.08em; white-space: nowrap; }
 
 	/* ---- git-graph list ---- */
 	.page-head { margin-top: 2rem; }
