@@ -6,25 +6,25 @@ import { SITE } from '../site';
 const { '@context': context, ...profile } = person;
 ---
 
-<Base title="About" description="About Avishek, also known as notDeadCaller." schema={{ '@context': context, '@type': 'ProfilePage', mainEntity: profile }}>
+<Base title="About" description="About me?." schema={{ '@context': context, '@type': 'ProfilePage', mainEntity: profile }}>
 	<header class="page-head">
 		<h1 data-decode>About</h1>
-		<p>Avishek, also known as notDeadCaller. Based in Kolkata.</p>
+		<p>Me, me and more me.</p>
 	</header>
 
 	<div class="prose">
 		<p>
-			I work in offensive security, mostly black-box testing of web applications: no source code, no credentials, only
-			what the application exposes. I am most interested in small logic flaws that have large consequences, like a
-			login flow that never limits how many times you can guess a one-time password.
+			I work in systems and security and mostly black-box testing of web apps what the application exposes. I am most interested in small business logic flaws.
+		</p>
+		<p>
+			Speaking of bounties, I've found a couple of bugs in live engagements (bugcrowd) but still yearn for a *original* *vetted* P>5 finding soon :<
 		</p>
 		<p>
 			I also build software. Recent projects include an Android safety app, a private chat over TCP using
-			post-quantum cryptography, and a health assistant for university students.
+			post-quantum cryptography, and a health assistant for university students (the last ones kinda mid).
 		</p>
 		<p>
-			This site collects <a href="/writeups/">writeups</a> of security work, shorter <a href="/notes/">notes</a>, and
-			<a href="/projects/">projects</a>. If you are here to hire me, start with the <a href="/resume/">resume</a>. The hardware and tools I work with are on <a href="/uses/">uses</a>.
+			This site collects <a href="/writeups/">writeups</a> of security work, shorter <a href="/notes/">notes</a>, and <a href="/projects/">projects</a>. If you are here to hire me, start with the <a href="/resume/">resume</a>. The hardware and tools I work with are on <a href="/uses/">uses</a>.
 		</p>
 
 		<h2 id="contact">Contact</h2>
@@ -35,9 +35,8 @@ const { '@context': context, ...profile } = person;
 
 		<h2 id="colophon">Colophon</h2>
 		<p>
-			Built with <a href="https://astro.build">Astro</a> and hosted on GitHub Pages. The ASCII artwork is drawn live in
-			a canvas by a small renderer written for this site. The visual language draws on the interfaces of Watch Dogs and
-			Cyberpunk 2077.
+			Built with <a href="https://astro.build">Astro</a> and hosted on GitHub Pages. The visual language draws on the interfaces of Watch Dogs and
+			Cyberpunk 2077. type shi.
 		</p>
 		<blockquote>{SITE.quote}</blockquote>
 	</div>
