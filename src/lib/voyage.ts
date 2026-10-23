@@ -40,6 +40,7 @@ export function voyage(
 		container: HTMLElement;
 		onHover?: (n: VNote | null, s: Screen | null) => void;
 		onOpen?: (n: VNote, s: Screen) => void;
+		onLayout?: (m: { worldW: number; cols: number; planets: { wx: number; wy: number; note: VNote }[] }) => void;
 		getUnlocked?: () => boolean;
 	},
 ) {
@@ -74,6 +75,12 @@ export function voyage(
 	let px = -99;
 	let py = -99;
 	let pactive = false;
+	let worldWcells = 0;
+	// drag to pan: a horizontal drag scrolls the page (which is what moves the camera)
+	let pressed = false;
+	let dragX = 0;
+	let dragScroll = 0;
+	let dragged = false;
 	const toCell = (e: PointerEvent) => {
 		const rect = canvas.getBoundingClientRect();
 		px = ((e.clientX - rect.left) / Math.max(1, canvas.clientWidth)) * lastCols;
@@ -93,13 +100,22 @@ export function voyage(
 		fps: reduced ? 2 : 26,
 		setup(f) {
 			const gap = f.cols * 0.92;
-			f.data.sys = Array.from({ length: sysCount }, (_, i) => ({
+			const sys = Array.from({ length: sysCount }, (_, i) => ({
 				wx: f.cols * 0.5 + i * gap,
-				wy: f.rows * (0.42 + (hash(i, 11) - 0.5) * 0.28),
+				// centres sit in the lower-middle band; the orbit is clamped below so nothing hides behind the navbar
+				wy: f.rows * (0.54 + (hash(i, 11) - 0.5) * 0.14),
 			}));
+			f.data.sys = sys;
 			f.data.worldW = (sysCount - 1) * gap;
 			f.data.live = [] as Live[];
 			f.data.suns = [] as { sx: number; sy: number }[];
+			// hand the page a stable layout for the minimap (system anchors, not live orbit positions)
+			opts.onLayout?.({
+				worldW: (sysCount - 1) * gap,
+				cols: f.cols,
+				// spread a system's planets a little on the minimap so they don't stack on the star's x
+				planets: planets.map((p, i) => ({ wx: sys[p.sys].wx + ((i % SYSTEM_SIZE) - 1) * gap * 0.14, wy: sys[p.sys].wy, note: p.note })),
+			});
 		},
 		frame(f) {
 			const dt = lastT < 0 ? 0 : f.time - lastT;
@@ -121,14 +137,19 @@ export function voyage(
 			f.data.camX = camX;
 			f.data.suns = sys.map((s) => ({ sx: s.wx - camX, sy: s.wy }));
 
+			worldWcells = f.data.worldW as number;
+			// keep orbits inside a safe vertical band, clear of the navbar (top) and the legend/hint (bottom)
+			const topSafe = f.rows * 0.16;
+			const botSafe = f.rows * 0.9;
 			const live: Live[] = [];
 			let hov: Planet | null = null;
 			let hovD = Infinity;
 			for (const planet of planets) {
 				const s = sys[planet.sys];
 				const a = planet.phase + orbitClock * planet.speed;
+				const vAmp = Math.max(2, Math.min(planet.orbitR / f.aspect, s.wy - topSafe - planet.r, botSafe - s.wy - planet.r));
 				const sx = s.wx + Math.cos(a) * planet.orbitR - camX;
-				const sy = s.wy + (Math.sin(a) * planet.orbitR) / f.aspect;
+				const sy = s.wy + Math.sin(a) * vAmp;
 				if (sx < -planet.r - 2 || sx > f.cols + planet.r + 2) continue;
 				live.push({ planet, sx, sy });
 				if (pactive) {
@@ -167,12 +188,13 @@ export function voyage(
 				}
 			}
 
+			// each system's star: a small clean white point with a soft glint, not a red blob
 			for (const s of f.data.suns as { sx: number; sy: number }[]) {
 				const d = Math.hypot(x - s.sx, (y - s.sy) * f.aspect);
-				if (d < 2.4) {
-					out.ch = d < 1.2 ? '@' : '*';
-					out.a = 1;
-					out.tone = 4;
+				if (d < 1.8) {
+					out.ch = d < 0.7 ? '*' : d < 1.1 ? '+' : '.';
+					out.a = d < 0.7 ? 1 : d < 1.1 ? 0.6 : 0.3;
+					out.tone = 3;
 				}
 			}
 
@@ -197,9 +219,12 @@ export function voyage(
 				const ny = dy / p.r;
 				const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
 				if (p.note.locked && !unlocked) {
-					out.ch = hash(x * 3 + Math.floor(clock * 4), y * 3) > 0.5 ? '#' : '.';
-					out.a = 0.18 + 0.1 * nz;
-					out.tone = 0;
+					// a proper dark sphere (shaded, desaturated) with a faint encrypted shimmer, not noise
+					const bl = clamp(nx * -0.5 + ny * -0.55 + nz * 0.66);
+					const flick = hash(x * 2 + Math.floor(clock * 3), y * 2) > 0.9;
+					out.ch = flick ? '?' : RAMP[1 + Math.floor(bl * 4)];
+					out.a = 0.22 + 0.4 * bl;
+					out.tone = flick ? 0 : 2;
 					continue;
 				}
 				const lit = p === hovered ? 1.18 : 1;
@@ -230,11 +255,42 @@ export function voyage(
 		if (L.planet.note.locked && !(opts.getUnlocked?.() ?? false)) return;
 		opts.onOpen?.(L.planet.note, screenOf(L, { cols: lastCols, rows: lastRows }));
 	};
-	canvas.addEventListener('click', open);
-	canvas.addEventListener('pointermove', toCell);
-	canvas.addEventListener('pointerdown', toCell);
+	const onClick = () => {
+		if (dragged) {
+			dragged = false; // a drag, not a tap: don't open
+			return;
+		}
+		open();
+	};
+	const onDown = (e: PointerEvent) => {
+		toCell(e);
+		if (paused) return;
+		pressed = true;
+		dragged = false;
+		dragX = e.clientX;
+		dragScroll = scrollY;
+		canvas.setPointerCapture?.(e.pointerId);
+	};
+	const onMove = (e: PointerEvent) => {
+		toCell(e);
+		if (!pressed || worldWcells <= 0) return;
+		const dx = e.clientX - dragX;
+		if (Math.abs(dx) > 4) dragged = true;
+		const cellW = canvas.clientWidth / Math.max(1, lastCols);
+		const span = opts.container.offsetHeight - innerHeight;
+		const worldPx = worldWcells * cellW;
+		if (worldPx > 0) scrollTo({ top: dragScroll - dx * (span / worldPx), behavior: 'auto' });
+	};
+	const onUp = () => {
+		pressed = false;
+	};
+	canvas.addEventListener('click', onClick);
+	canvas.addEventListener('pointerdown', onDown);
+	canvas.addEventListener('pointermove', onMove);
+	canvas.addEventListener('pointerup', onUp);
 	canvas.addEventListener('pointerleave', () => {
 		pactive = false;
+		pressed = false;
 	});
 
 	return {
@@ -243,9 +299,10 @@ export function voyage(
 			paused = v;
 		},
 		destroy() {
-			canvas.removeEventListener('click', open);
-			canvas.removeEventListener('pointermove', toCell);
-			canvas.removeEventListener('pointerdown', toCell);
+			canvas.removeEventListener('click', onClick);
+			canvas.removeEventListener('pointerdown', onDown);
+			canvas.removeEventListener('pointermove', onMove);
+			canvas.removeEventListener('pointerup', onUp);
 		},
 	};
 }
