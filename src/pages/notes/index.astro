@@ -2,6 +2,8 @@
 import { render } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 import { getPosts, isoDate, postUrl, SECTIONS, type Post } from '../../site';
+// committed CIPHERTEXT only (see scripts/encrypt-notes.mjs). No plaintext, no titles ship in clear.
+import vault from '../../data/encrypted-notes.json';
 
 const SYSTEM_SIZE = 3; // keep in sync with voyage.ts
 const notes = await getPosts('notes'); // newest first
@@ -25,12 +27,18 @@ const sky = notes.map((n) => ({
 // render each bite-sized note once, hidden, so a sticky note can show it without a round trip
 const bodies = await Promise.all(notes.filter((n) => sizeOf(n) !== 'giant').map(async (n) => ({ note: n, Content: (await render(n)).Content })));
 
+// encrypted cores: one red "?" sphere per entry at a system centre. Only id/label/sys are public.
+type VaultEntry = { id: string; label?: string; sys?: number; v: number; iter: number; salt: string; iv: string; ct: string };
+const cores = (vault as VaultEntry[]).map((e, i) => ({ sys: e.sys ?? i, id: e.id, label: e.label ?? 'encrypted' }));
+
+const systems = Math.max(1, Math.ceil(notes.length / SYSTEM_SIZE), ...cores.map((c) => c.sys + 1));
+const trackVh = Math.max(200, systems * 95);
+const hasContent = notes.length > 0 || cores.length > 0;
+
 // a short diegetic coordinate per note for the sticky header: SYS-NN · SIZE
 const coordOf = new Map(
 	notes.map((n, i) => [n.id, `SYS-${String(Math.floor(i / SYSTEM_SIZE) + 1).padStart(2, '0')} · ${sizeOf(n).toUpperCase()}`]),
 );
-const systems = Math.max(1, Math.ceil(notes.length / SYSTEM_SIZE));
-const trackVh = Math.max(200, systems * 95);
 
 const shortHash = (s: string) => {
 	let h = 2166136261;
@@ -39,7 +47,7 @@ const shortHash = (s: string) => {
 };
 
 // git-graph rows for the list view: consecutive notes sharing a primary tag become a branch
-type Row = { g: string; kind: string; note?: Post; label?: string };
+type Row = { g: string; kind: string; note?: Post; label?: string; enc?: { id: string; label: string } };
 const primary = (n: Post) => n.data.tags[0];
 const rows: Row[] = [{ g: '*', kind: 'tip' }];
 for (let i = 0; i < notes.length; ) {
@@ -56,12 +64,18 @@ for (let i = 0; i < notes.length; ) {
 	}
 	i = j;
 }
+// the encrypted cores read as a locked branch — buttons, since they have no public page
+if (cores.length) {
+	rows.push({ g: '|', kind: 'rail' }, { g: '|\\', kind: 'open', label: 'encrypted' });
+	for (const c of cores) rows.push({ g: '| *', kind: 'enc', enc: { id: c.id, label: c.label } });
+	rows.push({ g: '|/', kind: 'close' });
+}
 rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 ---
 
 <Base title="Notes" description={blurb} footer={false}>
 	{
-		notes.length === 0 ? (
+		!hasContent ? (
 			<header class="page-head">
 				<h1 data-decode>Notes</h1>
 				<p>{blurb} Nothing out here yet — check back soon.</p>
@@ -72,13 +86,14 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 
 				<section class="voyage" data-voyage style={`height:${trackVh}vh`} aria-hidden="true">
 					<div class="viewport">
-						<canvas class="ascii sky" data-hands data-notes={JSON.stringify(sky)} />
+						<canvas class="ascii sky" data-hands data-notes={JSON.stringify(sky)} data-cores={JSON.stringify(cores)} data-vault={JSON.stringify(vault)} />
 						<div class="hover-label" hidden />
-						<p class="hint">scroll to drift · hover a planet to focus it · click to open · a moon pops a note open here, a planet opens its page</p>
+						<p class="hint">scroll to drift · hover to focus · click to open · the red core of each system is an encrypted note</p>
 						<ul class="legend">
 							<li><span class="dot moon" /> moon — a quick note (opens here)</li>
 							<li><span class="dot planet" /> planet — a longer note (opens here)</li>
 							<li><span class="dot giant" /> big planet — a full piece (its own page)</li>
+							<li><span class="dot core" /> red core — an encrypted note (needs a passphrase)</li>
 							<li class="sep">colour = how settled the idea is: <b class="s">seedling</b> · <b class="b">budding</b> · <b class="e">evergreen</b></li>
 						</ul>
 					</div>
@@ -96,6 +111,14 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 						<p class="sticky-kicker">field note</p>
 						<h2 class="sticky-title" />
 						<div class="sticky-body prose" />
+						<div class="sticky-lock" data-lock hidden>
+							<p class="lock-hint">this thought is encrypted — enter the passphrase</p>
+							<div class="lock-row">
+								<input class="lock-input" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="passphrase" aria-label="passphrase" />
+								<button class="lock-go" type="button" data-unlock>unlock</button>
+							</div>
+							<p class="lock-error" data-lock-error hidden />
+						</div>
 						<p class="sticky-meta"><span class="sticky-date" /><span class="sticky-coord" /></p>
 					</div>
 					<span class="sticky-dogear" aria-hidden="true" />
@@ -115,6 +138,13 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 									<span class="sha">{shortHash(r.note.id)}</span>
 									<span class="stage">{r.note.data.maturity}</span>
 								</a>
+							) : r.kind === 'enc' ? (
+								<button class:list={['grow', 'commit', 'enc']} data-enc-id={r.enc!.id} type="button" role="listitem">
+									<span class="rail" aria-hidden="true">{r.g}</span>
+									<span class="title">{r.enc!.label}</span>
+									<span class="sha">[enc]</span>
+									<span class="stage enc-lock">locked</span>
+								</button>
 							) : r.kind === 'open' ? (
 								<p class="grow open" role="listitem">
 									<span class="rail" aria-hidden="true">{r.g}</span>
@@ -144,6 +174,8 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 
 <script>
 	import { voyage, type Screen, type VNote } from '../../lib/voyage';
+	import { decryptNote, type Vault } from '../../lib/decrypt';
+	import { renderNote } from '../../lib/notemd';
 
 	document.addEventListener('astro:page-load', () => {
 		const page = document.querySelector<HTMLElement>('.notes-page');
@@ -153,6 +185,17 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		const label = document.querySelector<HTMLElement>('.hover-label');
 		const sticky = document.querySelector<HTMLElement>('.sticky');
 		if (!page || !canvas || !container || !toggle || !label || !sticky) return;
+
+		// card refs
+		const kicker = sticky.querySelector<HTMLElement>('.sticky-kicker')!;
+		const titleEl = sticky.querySelector<HTMLElement>('.sticky-title')!;
+		const bodyEl = sticky.querySelector<HTMLElement>('.sticky-body')!;
+		const dateEl = sticky.querySelector<HTMLElement>('.sticky-date')!;
+		const coordEl = sticky.querySelector<HTMLElement>('.sticky-coord')!;
+		const lock = sticky.querySelector<HTMLElement>('[data-lock]')!;
+		const lockInput = sticky.querySelector<HTMLInputElement>('.lock-input')!;
+		const lockGo = sticky.querySelector<HTMLButtonElement>('[data-unlock]')!;
+		const lockError = sticky.querySelector<HTMLElement>('[data-lock-error]')!;
 
 		try {
 			const saved = localStorage.getItem('notes:view');
@@ -168,14 +211,27 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		toggle.textContent = page.dataset.view === 'map' ? 'list view' : 'map view';
 		toggle.addEventListener('click', () => setView(page.dataset.view === 'map' ? 'list' : 'map'));
 
-		const notes = JSON.parse(canvas.dataset.notes ?? '[]');
+		const notes = JSON.parse(canvas.dataset.notes ?? '[]') as VNote[];
+		const coreData = JSON.parse(canvas.dataset.cores ?? '[]') as { sys: number; id: string; label: string }[];
+		const vault = JSON.parse(canvas.dataset.vault ?? '[]') as Vault[];
+		const vaultById = new Map(vault.map((e) => [e.id, e]));
+		const coreById = new Map(coreData.map((c) => [c.id, c]));
+		// encrypted cores for the engine (hover/click like planets)
+		const cores = coreData.map((c) => ({
+			sys: c.sys,
+			note: { id: c.id, url: '', title: c.label, maturity: 'seedling', size: 'planet', mode: 'encrypted', locked: true } as VNote,
+		}));
+
 		const minimap = document.querySelector<HTMLElement>('[data-minimap]');
 		const mmDots = minimap?.querySelector<HTMLElement>('.mm-dots');
 		const mmView = minimap?.querySelector<HTMLElement>('.mm-view');
 		let systems = 1;
 		let open = false;
+		// the shared passphrase lives ONLY here, in memory — never localStorage, never the DOM
+		let sessionPass: string | null = null;
+		let current: { note: VNote; entry: Vault; s: Screen | null } | null = null;
 
-		// minimap: an overview strip of every note (by order), a window marking roughly what's on screen
+		// minimap: an overview strip of every body (by order), a window marking roughly what's on screen
 		const syncView = () => {
 			if (!mmView) return;
 			const rect = container.getBoundingClientRect();
@@ -194,35 +250,141 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 			scrollTo({ top: top + f * (container.offsetHeight - innerHeight), behavior: 'smooth' });
 		});
 
-		const closeNote = () => {
-			if (!open) return;
-			open = false;
-			sticky.hidden = true;
-			handle.setHeld(false);
-		};
-		const openSticky = (n: VNote, s: Screen) => {
-			const tpl = document.querySelector<HTMLTemplateElement>(`template[data-body="${n.id}"]`);
-			if (!tpl) return;
-			handle.setHeld(true);
-			open = true;
-			label.hidden = true;
-			sticky.querySelector('.sticky-title')!.textContent = tpl.dataset.title ?? n.title;
-			sticky.querySelector('.sticky-date')!.textContent = tpl.dataset.meta ?? '';
-			sticky.querySelector('.sticky-coord')!.textContent = tpl.dataset.coord ?? '';
-			const body = sticky.querySelector<HTMLElement>('.sticky-body')!;
-			body.replaceChildren(tpl.content.cloneNode(true));
-			// place the card beside the planet, clamped to the viewport
+		const placeCard = (s: Screen | null) => {
 			sticky.hidden = false;
 			const w = sticky.offsetWidth;
 			const h = sticky.offsetHeight;
-			const right = s.x + s.r + 16;
-			const left = right + w < innerWidth - 12 ? right : Math.max(12, s.x - s.r - 16 - w);
-			sticky.style.left = `${Math.min(left, innerWidth - w - 12)}px`;
-			sticky.style.top = `${Math.max(12, Math.min(s.y - h / 2, innerHeight - h - 12))}px`;
+			let left: number;
+			let top: number;
+			if (s) {
+				const right = s.x + s.r + 16;
+				left = Math.min(right + w < innerWidth - 12 ? right : Math.max(12, s.x - s.r - 16 - w), innerWidth - w - 12);
+				top = Math.max(12, Math.min(s.y - h / 2, innerHeight - h - 12));
+			} else {
+				left = Math.max(12, (innerWidth - w) / 2);
+				top = Math.max(12, (innerHeight - h) / 2);
+			}
+			sticky.style.left = `${left}px`;
+			sticky.style.top = `${top}px`;
 		};
+
+		const resetCard = () => {
+			sticky.classList.remove('is-encrypted');
+			lock.hidden = true;
+			lockError.hidden = true;
+			lockInput.value = '';
+			bodyEl.hidden = false;
+			titleEl.hidden = false;
+		};
+
+		const closeNote = () => {
+			if (!open) return;
+			open = false;
+			current = null;
+			sticky.hidden = true;
+			resetCard();
+			handle.setHeld(false);
+		};
+
+		const openSticky = (n: VNote, s: Screen) => {
+			const tpl = document.querySelector<HTMLTemplateElement>(`template[data-body="${n.id}"]`);
+			if (!tpl) return;
+			resetCard();
+			handle.setHeld(true);
+			open = true;
+			label.hidden = true;
+			kicker.textContent = 'field note';
+			titleEl.textContent = tpl.dataset.title ?? n.title;
+			dateEl.textContent = tpl.dataset.meta ?? '';
+			coordEl.textContent = tpl.dataset.coord ?? '';
+			bodyEl.replaceChildren(tpl.content.cloneNode(true));
+			placeCard(s);
+		};
+
+		const showContent = (title: string, body: string, s: Screen | null) => {
+			kicker.textContent = 'decrypted';
+			titleEl.textContent = title;
+			titleEl.hidden = false;
+			lock.hidden = true;
+			bodyEl.hidden = false;
+			renderNote(body, bodyEl);
+			placeCard(s); // size changed, re-clamp
+		};
+
+		let busy = false;
+		const tryDecrypt = async (pass: string) => {
+			if (!current || busy) return;
+			busy = true;
+			const { note, entry, s } = current;
+			lockGo.disabled = true;
+			lockError.hidden = true;
+			kicker.textContent = 'decrypting…';
+			try {
+				const plain = await decryptNote(entry, pass);
+				if (!open || current?.note.id !== note.id) return; // closed/changed mid-decrypt
+				sessionPass = pass;
+				lockInput.value = ''; // don't leave the passphrase sitting in the DOM
+				handle.markUnlocked?.(note.id);
+				showContent(plain.title, plain.body, s);
+			} catch (err) {
+				if (!open || current?.note.id !== note.id) return;
+				kicker.textContent = '[ encrypted ]';
+				lock.hidden = false;
+				bodyEl.hidden = true;
+				lockError.hidden = false;
+				lockError.textContent = (err as Error)?.message === 'insecure-context' ? 'needs a secure (https) connection' : 'wrong passphrase — try again';
+				lockInput.focus();
+				lockInput.select();
+			} finally {
+				lockGo.disabled = false;
+				busy = false;
+			}
+		};
+
+		const openEncrypted = (n: VNote, s: Screen | null, fromMap: boolean) => {
+			const entry = vaultById.get(n.id);
+			if (!entry) return;
+			resetCard();
+			if (fromMap) handle.setHeld(true);
+			open = true;
+			label.hidden = true;
+			current = { note: n, entry, s };
+			sticky.classList.add('is-encrypted');
+			const core = coreById.get(n.id);
+			coordEl.textContent = `SYS-${String((core ? core.sys : 0) + 1).padStart(2, '0')} · CORE`;
+			dateEl.textContent = 'encrypted';
+			kicker.textContent = '[ encrypted ]';
+			titleEl.textContent = n.title;
+			bodyEl.hidden = true;
+			lock.hidden = false;
+			lockError.hidden = true;
+			lockInput.value = '';
+			placeCard(s);
+			if (sessionPass) tryDecrypt(sessionPass);
+			else setTimeout(() => lockInput.focus(), 0);
+		};
+
+		const doUnlock = () => {
+			if (!current) return;
+			const pass = lockInput.value;
+			if (!pass) {
+				lockError.hidden = false;
+				lockError.textContent = 'enter the passphrase';
+				return;
+			}
+			tryDecrypt(pass);
+		};
+		lockGo.addEventListener('click', doUnlock);
+		lockInput.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') {
+				e.preventDefault();
+				doUnlock();
+			}
+		});
 
 		const handle = voyage(canvas, notes, {
 			container,
+			cores,
 			onLayout: (m) => {
 				systems = Math.max(1, Math.ceil(m.planets.length / 3));
 				if (!mmDots) return;
@@ -230,8 +392,9 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 				mmDots.replaceChildren(
 					...m.planets.map((pl, i) => {
 						const dot = document.createElement('span');
-						dot.className = `mm-dot ${pl.note.size}`;
-						dot.dataset.mat = pl.note.maturity;
+						const enc = pl.note.mode === 'encrypted';
+						dot.className = `mm-dot ${enc ? 'core' : pl.note.size}`;
+						if (!enc) dot.dataset.mat = pl.note.maturity;
 						dot.style.left = `${((i + 0.5) / n) * 92 + 4}%`;
 						dot.style.top = `${22 + (i % 4) * 18}%`;
 						dot.title = pl.note.title;
@@ -244,7 +407,7 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 				if (open) return;
 				if (n && s) {
 					label.hidden = false;
-					label.textContent = n.title;
+					label.textContent = n.mode === 'encrypted' ? `${n.title} · locked` : n.title;
 					label.style.cssText = `left:${s.x}px;top:${s.y + s.r * 2.2 + 14}px`;
 				} else {
 					label.hidden = true;
@@ -252,10 +415,19 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 			},
 			onOpen: (n, s) => {
 				if (n.mode === 'page') location.href = n.url;
+				else if (n.mode === 'encrypted') openEncrypted(n, s, true);
 				else openSticky(n, s);
 			},
-				onClose: closeNote,
+			onClose: closeNote,
 		});
+
+		// list view: the encrypted rows have no page, so they open the unlock card centred
+		for (const btn of document.querySelectorAll<HTMLElement>('[data-enc-id]')) {
+			btn.addEventListener('click', () => {
+				const c = coreById.get(btn.dataset.encId ?? '');
+				if (c) openEncrypted({ id: c.id, url: '', title: c.label, maturity: 'seedling', size: 'planet', mode: 'encrypted', locked: true }, null, false);
+			});
+		}
 
 		sticky.querySelector('[data-close]')?.addEventListener('click', closeNote);
 		addEventListener('keydown', (e) => e.key === 'Escape' && closeNote());
@@ -280,8 +452,7 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 	.notes-page[data-view='list'] .voyage,
 	.notes-page[data-view='list'] .hint,
 	.notes-page[data-view='list'] .legend,
-	.notes-page[data-view='list'] .minimap,
-	.notes-page[data-view='list'] .sticky { display: none !important; }
+	.notes-page[data-view='list'] .minimap { display: none !important; }
 
 	/* minimap: overview of every system + a window for the camera; click to jump */
 	.minimap {
@@ -308,6 +479,8 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 	.mm-dot.moon { width: 4px; height: 4px; }
 	.mm-dot.planet { width: 6px; height: 6px; }
 	.mm-dot.giant { width: 9px; height: 9px; }
+	.mm-dot.core { width: 8px; height: 8px; background: var(--hot); box-shadow: 0 0 5px 0 color-mix(in srgb, var(--hot) 75%, transparent); }
+
 	.mm-view {
 		position: absolute;
 		top: 0;
@@ -337,7 +510,7 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		height: 100%;
 	}
 
-	/* the hovered planet title; the focus ring itself is drawn in ASCII on the canvas */
+	/* the hovered body's title; the focus ring itself is drawn in ASCII on the canvas */
 	.hover-label {
 		position: fixed;
 		z-index: 12;
@@ -387,8 +560,9 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 	.legend .moon { width: 0.4rem; height: 0.4rem; }
 	.legend .planet { width: 0.7rem; height: 0.7rem; }
 	.legend .giant { width: 1rem; height: 1rem; }
+	.legend .core { width: 0.7rem; height: 0.7rem; background: var(--hot); box-shadow: 0 0 5px 0 color-mix(in srgb, var(--hot) 70%, transparent); }
 
-	/* sticky note */
+	/* sticky note — a field note pinned to the body */
 	.sticky {
 		position: fixed;
 		z-index: 25;
@@ -396,6 +570,7 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		transform: rotate(-1.3deg);
 		filter: drop-shadow(0 16px 40px rgba(0, 0, 0, 0.6));
 	}
+	.notes-page[data-view='list'] .sticky { transform: none; }
 	.sticky-paper {
 		position: relative;
 		max-height: 72vh;
@@ -456,6 +631,38 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 	}
 	.sticky-coord { color: var(--accent-2); letter-spacing: 0.08em; white-space: nowrap; }
 
+	/* encrypted variant: a red lock on the same paper */
+	.sticky.is-encrypted .sticky-paper { border-color: color-mix(in srgb, var(--hot) 45%, var(--line)); }
+	.sticky.is-encrypted .sticky-tape { background: color-mix(in srgb, var(--hot) 20%, transparent); border-color: color-mix(in srgb, var(--hot) 32%, transparent); }
+	.sticky.is-encrypted .sticky-kicker { color: var(--hot); }
+	.sticky.is-encrypted .sticky-title { color: var(--text-strong); }
+	.sticky.is-encrypted .sticky-coord { color: var(--hot); }
+
+	.sticky-lock { margin: 0.1rem 0 0; }
+	.lock-hint { margin: 0 0 0.7rem; font: 0.85rem var(--font-body); color: var(--text); }
+	.lock-row { display: flex; gap: 0.5rem; }
+	.lock-input {
+		flex: 1;
+		min-width: 0;
+		padding: 0.42rem 0.55rem;
+		font: 0.85rem var(--font-mono);
+		color: var(--text-strong);
+		background: var(--bg);
+		border: 1px solid var(--line);
+	}
+	.lock-input:focus-visible { outline: none; border-color: var(--hot); }
+	.lock-go {
+		padding: 0.42rem 0.85rem;
+		font: 0.75rem var(--font-mono);
+		color: var(--hot);
+		background: none;
+		border: 1px solid color-mix(in srgb, var(--hot) 50%, var(--line));
+		cursor: pointer;
+	}
+	.lock-go:hover { background: color-mix(in srgb, var(--hot) 12%, transparent); }
+	.lock-go[disabled] { opacity: 0.55; cursor: progress; }
+	.lock-error { margin: 0.55rem 0 0; font: 0.72rem var(--font-mono); color: var(--hot); }
+
 	/* ---- git-graph list ---- */
 	.page-head { margin-top: 2rem; }
 	.graph { margin-top: 2rem; font-family: var(--font-mono); }
@@ -479,6 +686,12 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 	.open { grid-template-columns: 3.5ch 1fr; }
 	.branch { color: var(--accent-2); }
 	.branch::before { content: '⎇ '; }
+
+	/* encrypted rows are buttons that open the unlock card */
+	button.grow.enc { width: 100%; padding: 0.15rem 0; font: inherit; text-align: left; background: none; border: 0; cursor: pointer; }
+	.grow.enc .rail { color: var(--hot); }
+	.grow.enc .enc-lock { color: var(--hot); }
+	.grow.enc:is(:hover, :focus-visible) .title { color: var(--hot); }
 
 	@media (max-width: 34em) {
 		.grow { grid-template-columns: 3.5ch 1fr; }

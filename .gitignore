@@ -25,3 +25,6 @@ pnpm-debug.log*
 
 # private source documents
 /resume.pdf
+
+# private note sources (encrypted into src/data/encrypted-notes.json before commit)
+/private/
