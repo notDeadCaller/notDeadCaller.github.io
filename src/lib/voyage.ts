@@ -38,6 +38,7 @@ export function voyage(
 		container: HTMLElement;
 		onHover?: (n: VNote | null, s: Screen | null) => void;
 		onOpen?: (n: VNote, s: Screen) => void;
+		onClose?: () => void;
 		onLayout?: (m: { worldW: number; cols: number; planets: { wx: number; wy: number; note: VNote }[] }) => void;
 		getUnlocked?: () => boolean;
 	},
@@ -62,6 +63,7 @@ export function voyage(
 
 	let hovered: Planet | null = null; // planet under the pointer
 	let held: Planet | null = null; // pinned focus while a sticky note is open
+	let pendingHeld: Planet | null = null; // the planet the current click is opening
 	let orbitClock = 0; // advances only when nothing is focused (so focus freezes the scene)
 	let ringClock = 0; // advances while a planet is focused (so the reticle keeps turning)
 	let lastT = -1;
@@ -165,7 +167,7 @@ export function voyage(
 			// the ASCII Saturn ring sits on the focused planet's (now frozen) position
 			const fp = (held ?? hov) && live.find((l) => l.planet === (held ?? hov));
 			if (fp) {
-				const Rx = fp.planet.r * 1.8;
+				const Rx = fp.planet.r * 1.7 + 2.4;
 				const Ry = Rx * 0.34;
 				const ang = ringClock * 1.1;
 				f.data.ring = {
@@ -205,24 +207,24 @@ export function voyage(
 			}
 
 			// system cores: an encrypted note sits at the centre of each system — the real thought the
-			// public ones orbit. Drawn as a pulsing red "?" star with cross rays (locked until unlocked).
+			// public ones orbit. Drawn as a round pulsing red "?" star: a bright core in a dotted halo ring.
 			for (const s of f.data.suns as { sx: number; sy: number }[]) {
 				const ddx = x - s.sx;
 				const ddy = (y - s.sy) * f.aspect;
 				const d = Math.hypot(ddx, ddy);
-				if (d < 3.2) {
-					const pulse = 0.65 + 0.35 * Math.sin(clock * 2 + s.sx * 0.3);
-					if (d < 1.4) {
+				if (d < 3.0) {
+					const pulse = 0.6 + 0.4 * Math.sin(clock * 2 + s.sx * 0.3);
+					if (d < 1.1) {
 						out.ch = '?';
-						out.a = Math.min(1, pulse + 0.3);
+						out.a = Math.min(1, pulse + 0.35);
 						out.tone = 4;
-					} else if (Math.abs(ddx) < 0.6 || Math.abs(ddy) < 0.8) {
-						out.ch = d < 2.2 ? '?' : '+';
-						out.a = 0.7 * pulse;
+					} else if (Math.abs(d - 2.2) < 0.6) {
+						out.ch = hash(Math.floor(x * 0.9), Math.floor(y)) > 0.8 ? '*' : 'o';
+						out.a = 0.35 + 0.4 * pulse;
 						out.tone = 4;
-					} else if (d < 2.8 && hash(x * 1.3, y * 1.7) > 0.6) {
+					} else if (d < 1.8 && hash(x * 1.7, y * 1.3) > 0.62) {
 						out.ch = ':';
-						out.a = 0.4 * pulse;
+						out.a = 0.22 * pulse;
 						out.tone = 4;
 					}
 				}
@@ -301,8 +303,12 @@ export function voyage(
 				L = l;
 			}
 		}
-		if (!L) return;
+		if (!L) {
+			if (held) opts.onClose?.();
+			return;
+		}
 		if (L.planet.note.locked && !(opts.getUnlocked?.() ?? false)) return;
+		pendingHeld = L.planet;
 		opts.onOpen?.(L.planet.note, screenOf(L, lastCols, lastRows));
 	};
 	const onDown = (e: PointerEvent) => {
@@ -339,7 +345,7 @@ export function voyage(
 		...handle,
 		// pin focus to the hovered planet while its sticky note is open (so the scene stays frozen)
 		setHeld(v: boolean) {
-			held = v ? hovered : null;
+			held = v ? pendingHeld : null;
 		},
 		destroy() {
 			canvas.removeEventListener('click', open);
