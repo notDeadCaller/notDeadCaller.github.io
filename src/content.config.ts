@@ -38,7 +38,8 @@ const writeups = defineCollection({
 
 const notes = defineCollection({
 	loader: glob({ base: './src/content/notes', pattern: '**/*.{md,mdx}' }),
-	schema: post,
+	// maturity drives the planet's size/brightness on the Notes map (seedling -> evergreen)
+	schema: post.extend({ maturity: z.enum(['seedling', 'budding', 'evergreen']).default('seedling') }),
 });
 
 const projects = defineCollection({

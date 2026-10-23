@@ -4,7 +4,10 @@ import Base from '../../layouts/Base.astro';
 import { getPosts, SECTIONS, type Section } from '../../site';
 
 export function getStaticPaths() {
-	return Object.keys(SECTIONS).map((section) => ({ params: { section } }));
+	// notes has its own page (the voyage map); this route serves the other sections
+	return Object.keys(SECTIONS)
+		.filter((section) => section !== 'notes')
+		.map((section) => ({ params: { section } }));
 }
 
 const section = Astro.params.section as Section;
