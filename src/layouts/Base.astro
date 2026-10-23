@@ -13,9 +13,11 @@ interface Props {
 	type?: 'website' | 'article';
 	/** schema.org structured data for search engines */
 	schema?: Record<string, unknown>;
+	/** drop the footer for full-bleed, self-contained pages like the Notes map */
+	footer?: boolean;
 }
 
-const { title, description = SITE.description, type = 'website', schema } = Astro.props;
+const { title, description = SITE.description, type = 'website', schema, footer = true } = Astro.props;
 const pageTitle = title ? `${title} · ${SITE.title}` : `${SITE.title} · ${SITE.tagline}`;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const section = `/${Astro.url.pathname.split('/')[1] ?? ''}/`;
@@ -87,16 +89,20 @@ const CSP = [
 		<main id="main">
 			<slot />
 		</main>
-		<footer class="site-footer">
-			<div class="footer-art"><Ascii art="skyline" /></div>
-			<div class="footer-row">
-				<p class="quote">“{SITE.quote}”</p>
-				<p class="links">
-					{SOCIALS.map(({ href, label }) => <a href={href}>{label}</a>)}
-					<span>© {new Date().getFullYear()}</span>
-				</p>
-			</div>
-		</footer>
+		{
+			footer && (
+				<footer class="site-footer">
+					<div class="footer-art"><Ascii art="skyline" /></div>
+					<div class="footer-row">
+						<p class="quote">“{SITE.quote}”</p>
+						<p class="links">
+							{SOCIALS.map(({ href, label }) => <a href={href}>{label}</a>)}
+							<span>© {new Date().getFullYear()}</span>
+						</p>
+					</div>
+				</footer>
+			)
+		}
 
 		<script>
 			import { startAnalytics } from '../lib/analytics';

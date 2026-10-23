@@ -1,29 +1,41 @@
 ---
+import { render } from 'astro:content';
 import Base from '../../layouts/Base.astro';
-import { getPosts, postUrl, SECTIONS, type Post } from '../../site';
+import { getPosts, isoDate, postUrl, SECTIONS, type Post } from '../../site';
 
-const SYSTEM_SIZE = 3; // keep in sync with voyage.ts SYSTEM_SIZE
+const SYSTEM_SIZE = 3; // keep in sync with voyage.ts
 const notes = await getPosts('notes'); // newest first
 const { blurb } = SECTIONS.notes;
 
-// data for the voyage canvas (public notes only in phase 1; locked ones arrive with phase 2)
-const sky = notes.map((n) => ({ id: n.id, url: postUrl(n), title: n.data.title, maturity: n.data.maturity, locked: false }));
+// size by content length: short notes are moons that pop open as sticky notes; long ones are big
+// planets that open their own page. colour stays with maturity.
+const sizeOf = (n: Post) => {
+	const len = (n.body ?? '').length;
+	return len < 450 ? 'moon' : len < 1100 ? 'planet' : 'giant';
+};
+const sky = notes.map((n) => ({
+	id: n.id,
+	url: postUrl(n),
+	title: n.data.title,
+	maturity: n.data.maturity,
+	size: sizeOf(n),
+	mode: sizeOf(n) === 'giant' ? 'page' : 'sticky',
+	locked: false,
+}));
+// render each bite-sized note once, hidden, so a sticky note can show it without a round trip
+const bodies = await Promise.all(notes.filter((n) => sizeOf(n) !== 'giant').map(async (n) => ({ note: n, Content: (await render(n)).Content })));
 
-// scroll track length grows with the number of systems, so you can fly past every note
 const systems = Math.max(1, Math.ceil(notes.length / SYSTEM_SIZE));
 const trackVh = Math.max(200, systems * 95);
 
-// a short, deterministic "commit hash" per note, for the git-graph list
 const shortHash = (s: string) => {
 	let h = 2166136261;
 	for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
 	return (h >>> 0).toString(16).padStart(8, '0').slice(0, 7);
 };
-const MAT = { seedling: '.', budding: '+', evergreen: '*' } as const;
 
-// build git-graph rows: consecutive notes sharing a primary tag become a branch; everything else
-// is a commit on the trunk. ` ` = rail only, the rest carry a note.
-type Row = { g: string; kind: 'tip' | 'rail' | 'main' | 'open' | 'commit' | 'close' | 'root'; note?: Post; label?: string };
+// git-graph rows for the list view: consecutive notes sharing a primary tag become a branch
+type Row = { g: string; kind: string; note?: Post; label?: string };
 const primary = (n: Post) => n.data.tags[0];
 const rows: Row[] = [{ g: '*', kind: 'tip' }];
 for (let i = 0; i < notes.length; ) {
@@ -43,7 +55,7 @@ for (let i = 0; i < notes.length; ) {
 rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 ---
 
-<Base title="Notes" description={blurb}>
+<Base title="Notes" description={blurb} footer={false}>
 	{
 		notes.length === 0 ? (
 			<header class="page-head">
@@ -57,11 +69,25 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 				<section class="voyage" data-voyage style={`height:${trackVh}vh`} aria-hidden="true">
 					<div class="viewport">
 						<canvas class="ascii sky" data-hands data-notes={JSON.stringify(sky)} />
-						<div class="reticle" />
-						<figcaption class="focus"><span class="focus-title" /></figcaption>
-						<p class="hint">scroll to drift through the systems · a planet at centre is in focus · click to open</p>
+						<div class="hover-ring" hidden />
+						<div class="hover-label" hidden />
+						<p class="hint">scroll to drift · hover a planet to focus it · click to open · a moon pops a note open here, a planet opens its page</p>
+						<ul class="legend">
+							<li><span class="dot moon" /> moon — a quick note (opens here)</li>
+							<li><span class="dot planet" /> planet — a longer note (opens here)</li>
+							<li><span class="dot giant" /> big planet — a full piece (its own page)</li>
+							<li class="sep">brightness = maturity: <b>seedling</b> · <b>budding</b> · <b>evergreen</b></li>
+						</ul>
 					</div>
 				</section>
+
+				<aside class="sticky" hidden aria-live="polite">
+					<button class="sticky-close" type="button" data-close aria-label="Close note">[ close ]</button>
+					<p class="sticky-kicker">note</p>
+					<h2 class="sticky-title" />
+					<div class="sticky-body prose" />
+					<p class="sticky-meta" />
+				</aside>
 
 				<div class="list-view">
 					<header class="page-head">
@@ -90,23 +116,33 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 						)}
 					</div>
 				</div>
+
+				{/* hidden rendered bodies for the sticky notes */}
+				<div class="note-bodies" hidden>
+					{bodies.map(({ note, Content }) => (
+						<template data-body={note.id} data-title={note.data.title} data-meta={`${isoDate(note.data.pubDate)} · ${note.data.maturity}`} data-url={postUrl(note)}>
+							<Content />
+						</template>
+					))}
+				</div>
 			</div>
 		)
 	}
 </Base>
 
 <script>
-	import { voyage } from '../../lib/voyage';
+	import { voyage, type Screen, type VNote } from '../../lib/voyage';
 
 	document.addEventListener('astro:page-load', () => {
 		const page = document.querySelector<HTMLElement>('.notes-page');
 		const canvas = document.querySelector<HTMLCanvasElement>('canvas.sky');
 		const container = document.querySelector<HTMLElement>('.voyage');
-		const focus = document.querySelector<HTMLElement>('.focus-title');
 		const toggle = document.querySelector<HTMLButtonElement>('[data-toggle]');
-		if (!page || !canvas || !container || !toggle) return;
+		const ring = document.querySelector<HTMLElement>('.hover-ring');
+		const label = document.querySelector<HTMLElement>('.hover-label');
+		const sticky = document.querySelector<HTMLElement>('.sticky');
+		if (!page || !canvas || !container || !toggle || !ring || !label || !sticky) return;
 
-		// default to the list for reduced motion or a remembered preference; map otherwise
 		try {
 			const saved = localStorage.getItem('notes:view');
 			if (saved === 'list' || (!saved && matchMedia('(prefers-reduced-motion: reduce)').matches)) page.dataset.view = 'list';
@@ -122,28 +158,69 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		toggle.addEventListener('click', () => setView(page.dataset.view === 'map' ? 'list' : 'map'));
 
 		const notes = JSON.parse(canvas.dataset.notes ?? '[]');
+		let open = false;
+
+		const closeNote = () => {
+			if (!open) return;
+			open = false;
+			sticky.hidden = true;
+			handle.setPaused(false);
+		};
+		const openSticky = (n: VNote, s: Screen) => {
+			const tpl = document.querySelector<HTMLTemplateElement>(`template[data-body="${n.id}"]`);
+			if (!tpl) return;
+			handle.setPaused(true);
+			open = true;
+			ring.hidden = true;
+			label.hidden = true;
+			sticky.querySelector('.sticky-title')!.textContent = tpl.dataset.title ?? n.title;
+			sticky.querySelector('.sticky-meta')!.textContent = tpl.dataset.meta ?? '';
+			const body = sticky.querySelector<HTMLElement>('.sticky-body')!;
+			body.replaceChildren(tpl.content.cloneNode(true));
+			// place the card beside the planet, clamped to the viewport
+			sticky.hidden = false;
+			const w = sticky.offsetWidth;
+			const h = sticky.offsetHeight;
+			const right = s.x + s.r + 16;
+			const left = right + w < innerWidth - 12 ? right : Math.max(12, s.x - s.r - 16 - w);
+			sticky.style.left = `${Math.min(left, innerWidth - w - 12)}px`;
+			sticky.style.top = `${Math.max(12, Math.min(s.y - h / 2, innerHeight - h - 12))}px`;
+		};
+
 		const handle = voyage(canvas, notes, {
 			container,
-			onFocus: (n) => {
-				if (focus) focus.textContent = n ? n.title : '';
-				container.classList.toggle('has-focus', !!n);
+			onHover: (n, s) => {
+				if (open) return;
+				if (n && s) {
+					ring.hidden = false;
+					const d = s.r * 2 + 10;
+					ring.style.cssText = `left:${s.x}px;top:${s.y}px;width:${d}px;height:${d}px`;
+					label.hidden = false;
+					label.textContent = n.title;
+					label.style.cssText = `left:${s.x}px;top:${s.y + s.r + 12}px`;
+				} else {
+					ring.hidden = true;
+					label.hidden = true;
+				}
 			},
-			onOpen: (n) => {
-				if (n.url) location.href = n.url;
+			onOpen: (n, s) => {
+				if (n.mode === 'page') location.href = n.url;
+				else openSticky(n, s);
 			},
 		});
-		// tidy up before the client router swaps the page out
-		document.addEventListener('astro:before-swap', () => handle?.destroy?.(), { once: true });
+
+		sticky.querySelector('[data-close]')?.addEventListener('click', closeNote);
+		addEventListener('keydown', (e) => e.key === 'Escape' && closeNote());
+		document.addEventListener('astro:before-swap', () => handle.destroy(), { once: true });
 	});
 </script>
 
 <style>
 	.view-toggle {
-		position: sticky;
-		top: 1rem;
-		z-index: 5;
-		display: block;
-		margin-left: auto;
+		position: fixed;
+		top: 4.75rem;
+		right: var(--gutter);
+		z-index: 20;
 		padding: 0.3rem 0.8rem;
 		font: 0.8125rem var(--font-mono);
 		color: var(--accent);
@@ -152,8 +229,10 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 	}
 
 	.notes-page[data-view='map'] .list-view { display: none; }
-	.notes-page[data-view='list'] .voyage { display: none; }
-	.notes-page[data-view='list'] .view-toggle { position: static; margin-bottom: 1.5rem; }
+	.notes-page[data-view='list'] .voyage,
+	.notes-page[data-view='list'] .hint,
+	.notes-page[data-view='list'] .legend,
+	.notes-page[data-view='list'] .sticky { display: none !important; }
 
 	.voyage {
 		position: relative;
@@ -161,14 +240,12 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		margin-left: calc(50% - 50vw);
 		margin-top: -4rem;
 	}
-
 	.viewport {
 		position: sticky;
 		top: 0;
 		height: 100vh;
 		overflow: hidden;
 	}
-
 	.sky {
 		position: absolute;
 		inset: 0;
@@ -176,59 +253,94 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		height: 100%;
 	}
 
-	.reticle {
-		position: absolute;
-		left: 50%;
-		top: 50%;
-		width: 7rem;
-		height: 7rem;
+	/* focus ring + title appear only on a hovered planet */
+	.hover-ring {
+		position: fixed;
+		z-index: 12;
 		transform: translate(-50%, -50%);
-		opacity: 0.22;
+		border: 1px solid var(--accent);
+		border-radius: 50%;
+		box-shadow: 0 0 12px 1px color-mix(in srgb, var(--accent) 60%, transparent);
 		pointer-events: none;
-		transition: opacity 0.2s;
-		background:
-			linear-gradient(var(--accent), var(--accent)) left top / 0.9rem 1px no-repeat,
-			linear-gradient(var(--accent), var(--accent)) left top / 1px 0.9rem no-repeat,
-			linear-gradient(var(--accent), var(--accent)) right top / 0.9rem 1px no-repeat,
-			linear-gradient(var(--accent), var(--accent)) right top / 1px 0.9rem no-repeat,
-			linear-gradient(var(--accent), var(--accent)) left bottom / 0.9rem 1px no-repeat,
-			linear-gradient(var(--accent), var(--accent)) left bottom / 1px 0.9rem no-repeat,
-			linear-gradient(var(--accent), var(--accent)) right bottom / 0.9rem 1px no-repeat,
-			linear-gradient(var(--accent), var(--accent)) right bottom / 1px 0.9rem no-repeat;
 	}
-	.voyage.has-focus .reticle { opacity: 0.7; }
-
-	.focus {
-		position: absolute;
-		left: 0;
-		right: 0;
-		bottom: 4.5rem;
-		text-align: center;
-		font-family: var(--font-display);
-		font-size: clamp(1.1rem, 3vw, 1.8rem);
+	.hover-label {
+		position: fixed;
+		z-index: 12;
+		transform: translateX(-50%);
+		padding: 0.15rem 0.5rem;
+		white-space: nowrap;
+		font: 0.8125rem var(--font-mono);
 		color: var(--text-strong);
+		background: var(--bg-raised);
+		border: 1px solid var(--line);
 		pointer-events: none;
-		min-height: 1.5em;
 	}
-	.focus-title { border-bottom: 1px solid var(--accent); padding-bottom: 0.1rem; }
-	.focus-title:empty { border: 0; }
 
 	.hint {
-		position: absolute;
+		position: fixed;
 		left: 0;
 		right: 0;
-		bottom: 1.5rem;
+		bottom: 1.1rem;
+		z-index: 11;
 		text-align: center;
 		margin: 0;
-		font: 0.75rem var(--font-mono);
+		padding: 0 1rem;
+		font: 0.72rem var(--font-mono);
 		color: var(--muted);
 		pointer-events: none;
 	}
 
+	.legend {
+		position: fixed;
+		left: var(--gutter);
+		bottom: 2.6rem;
+		z-index: 11;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		font: 0.72rem var(--font-mono);
+		color: var(--muted);
+		pointer-events: none;
+	}
+	.legend li { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.2rem; }
+	.legend .sep { margin-top: 0.3rem; }
+	.legend b { color: var(--accent); font-weight: 400; }
+	.legend .dot { display: inline-block; border-radius: 50%; background: var(--muted); }
+	.legend .moon { width: 0.4rem; height: 0.4rem; }
+	.legend .planet { width: 0.7rem; height: 0.7rem; }
+	.legend .giant { width: 1rem; height: 1rem; }
+
+	/* sticky note */
+	.sticky {
+		position: fixed;
+		z-index: 25;
+		width: min(22rem, calc(100vw - 2rem));
+		max-height: 70vh;
+		overflow: auto;
+		padding: 1.1rem 1.25rem 1.4rem;
+		background: var(--bg-raised);
+		border: 1px solid var(--accent);
+		box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+		clip-path: polygon(0 0, 100% 0, 100% calc(100% - 1rem), calc(100% - 1rem) 100%, 0 100%);
+	}
+	.sticky-close {
+		float: right;
+		padding: 0;
+		font: 0.75rem var(--font-mono);
+		color: var(--muted);
+		background: none;
+		border: 0;
+	}
+	.sticky-close:hover { color: var(--accent); }
+	.sticky-kicker { margin: 0; font: 600 0.75rem var(--font-mono); color: var(--accent); }
+	.sticky-title { margin: 0.2rem 0 0.6rem; font-size: 1.2rem; }
+	.sticky-body { font-size: 0.95rem; }
+	.sticky-body :first-child { margin-top: 0; }
+	.sticky-meta { margin: 0.8rem 0 0; font: 0.75rem var(--font-mono); color: var(--muted); }
+
 	/* ---- git-graph list ---- */
 	.page-head { margin-top: 2rem; }
 	.graph { margin-top: 2rem; font-family: var(--font-mono); }
-
 	.grow {
 		display: grid;
 		grid-template-columns: 3.5ch 1fr auto auto;
@@ -238,18 +350,14 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		text-decoration: none;
 	}
 	.grow .rail { color: var(--accent-2); white-space: pre; }
-	.grow .rail[data-mat='budding'] { color: var(--accent-2); }
 	.grow .rail[data-mat='evergreen'] { color: var(--text-strong); }
 	a.grow { padding: 0.15rem 0; }
 	a.grow:is(:hover, :focus-visible) .title { color: var(--accent); }
-
 	.grow.rail, .grow.tip, .grow.root, .grow.close { line-height: 0.9; }
 	.grow.tip .rail, .grow.root .rail { color: var(--text-strong); }
-
 	.title { color: var(--text-strong); font-family: var(--font-body); }
 	.sha { font-size: 0.8125rem; color: var(--muted); }
 	.stage { font-size: 0.8125rem; color: var(--accent); }
-
 	.open { grid-template-columns: 3.5ch 1fr; }
 	.branch { color: var(--accent-2); }
 	.branch::before { content: '⎇ '; }
@@ -258,5 +366,6 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		.grow { grid-template-columns: 3.5ch 1fr; }
 		.sha { display: none; }
 		.stage { grid-column: 2; justify-self: start; font-size: 0.75rem; }
+		.legend { display: none; }
 	}
 </style>
