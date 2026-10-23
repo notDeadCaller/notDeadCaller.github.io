@@ -159,11 +159,11 @@ const CSP = [
 			// pixel hands (public/cursors) with their hotspots: [data-hands] art starts on the pointing one,
 			// and each click picks another
 			const HANDS = [
-				['point', 11, 3],
-				['palm', 17, 15],
-				['grab', 15, 13],
-				['peace', 7, 3],
-				['gun', 31, 11],
+				['point', 13, 3],
+				['palm', 3, 13],
+				['grab', 3, 11],
+				['splay', 3, 11],
+				['drag', 23, 3],
 			] as const;
 			document.addEventListener('astro:page-load', () => {
 				const areas = document.querySelectorAll<HTMLElement>('[data-hands]');

@@ -28,7 +28,7 @@ const section = SECTIONS[post.collection];
 
 <Base title={title} description={description} type="article">
 	<div class="progress" aria-hidden="true"></div>
-	<div class="post-art"><Ascii art="cover" seed={post.id} motif={post.data.art} dissolve /></div>
+	<div class="post-art" data-hands><Ascii art="cover" seed={post.id} motif={post.data.art} dissolve /></div>
 	<article class:list={['post', { 'has-toc': toc.length > 2 }]}>
 		<header class="post-head">
 			<p class="kicker"><a href={`/${post.collection}/`}>{section.title}</a></p>

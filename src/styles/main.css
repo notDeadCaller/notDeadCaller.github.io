@@ -165,7 +165,7 @@ img {
 
 /* clickable ASCII art: a pixel-hand cursor, swapped on each click (Base.astro) */
 [data-hands] {
-	cursor: url('/cursors/point.svg') 11 3, pointer;
+	cursor: url('/cursors/point.svg') 13 3, pointer;
 }
 
 /* wordmark: a yellow highlight block wipes in on hover with a cyan misregistered copy,

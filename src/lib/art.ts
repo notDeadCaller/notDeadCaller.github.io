@@ -493,26 +493,47 @@ function oracle(rand: () => number): Piece {
 	};
 }
 
-/** The redaction-bypass writeup: a wall of redaction blocks, with escape tokens (~1 /, ~0 ~) leaking
- * through the sparse cells the parser forgot to mask. A diagonal scan brightens the wall as it passes. */
+/** The redaction-bypass writeup: the escape tokens that slip past the filter (~1, ~0, /) scattered
+ * legibly as the focus, in cyan with a few hot leaks, over a faint wall of redaction blocks. */
 function redact(rand: () => number): Piece {
-	const LEAK = '~1/~0';
-	const seed = rand() * 100;
+	const TOKENS = ['~1', '~0', '/'];
+	let cells: string[] = [];
+	let hot = new Uint8Array(0);
+	// lazy build: asciiFrame (build-time preview) never calls setup, so place the tokens on first draw
+	const build = (f: Field) => {
+		cells = new Array(f.cols * f.rows).fill('');
+		hot = new Uint8Array(f.cols * f.rows);
+		const n = Math.round((f.cols * f.rows) / 30);
+		for (let i = 0; i < n; i++) {
+			const tok = TOKENS[Math.floor(rand() * TOKENS.length)];
+			const y = 1 + Math.floor(rand() * (f.rows - 2));
+			const x = 1 + Math.floor(rand() * (f.cols - tok.length - 1));
+			let clear = true;
+			for (let k = -1; k <= tok.length; k++) if (cells[y * f.cols + x + k]) clear = false;
+			if (!clear) continue;
+			const leak = rand() < 0.28;
+			for (let k = 0; k < tok.length; k++) {
+				cells[y * f.cols + x + k] = tok[k];
+				hot[y * f.cols + x + k] = leak ? 1 : 0;
+			}
+		}
+	};
 	return {
 		shader(x, y, f, out) {
-			const r = hash(x + seed, y * 1.7);
-			if (r < 0.07) {
-				// a leak: an escaped reference that slipped past the filter, shown hot
-				out.ch = LEAK[(x + y * 2) % LEAK.length];
-				out.a = 0.85 + 0.15 * Math.sin(f.time * 3 + x);
-				out.tone = 6;
+			if (cells.length !== f.cols * f.rows) build(f);
+			const i = y * f.cols + x;
+			const tok = cells[i];
+			if (tok) {
+				out.ch = tok;
+				out.a = 0.7 + 0.3 * Math.sin(f.time * 2 + x * 0.3 + y);
+				out.tone = hot[i] ? 6 : 5;
 				return;
 			}
-			if (r < 0.78) {
-				const scan = (x + y * 0.5 + f.time * 4) % 16 < 2;
-				out.ch = scan ? '%' : '#';
-				out.a = scan ? 0.5 : 0.18 + r * 0.22;
-				out.tone = scan ? 1 : 0;
+			// faint redaction wall behind, kept subtle so the tokens read
+			if (hash(x * 1.3, y * 2.1) < 0.5 && (x + y) % 2 === 0) {
+				out.ch = '#';
+				out.a = 0.08;
+				out.tone = 0;
 			}
 		},
 	};
