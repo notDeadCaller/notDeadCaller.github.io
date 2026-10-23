@@ -456,7 +456,69 @@ function flag(rand: () => number): Piece {
 	};
 }
 
-const MOTIFS: Record<string, (rand: () => number) => Piece> = { eye, lattice, pulse, counter, flag };
+/** The two-oracles writeup: a timing histogram. A squat cluster of fast misses on the left, a tall
+ * cluster of slow hits on the right, with a playhead sweeping across and lighting the bars it passes. */
+function oracle(rand: () => number): Piece {
+	const BARS = 28;
+	// left band short (~4ms misses), a gap, right band tall (~174ms hits)
+	const h = Array.from({ length: BARS }, (_, i) => {
+		const band = i / (BARS - 1);
+		const base = band < 0.4 ? 0.14 : band > 0.56 ? 0.74 : 0;
+		return base > 0 ? Math.max(0.06, base + (rand() - 0.5) * 0.2) : 0;
+	});
+	return {
+		shader(x, y, f, out) {
+			if (y === f.rows - 1) {
+				out.ch = x % 2 === 0 ? '-' : '.';
+				out.a = 0.3;
+				out.tone = 0;
+				return;
+			}
+			const barH = h[Math.floor((x / f.cols) * BARS)] ?? 0;
+			const up = 1 - (y + 1) / f.rows;
+			const playhead = ((f.time * 0.45) % 1.4) - 0.2;
+			const lit = Math.abs(x / f.cols - playhead) < 0.025;
+			if (barH > 0 && up < barH && x % 2 === 0) {
+				out.ch = up > barH - 0.07 ? '=' : '|';
+				out.a = lit ? 1 : 0.3 + 0.55 * barH;
+				out.tone = lit ? 7 : gradient(x / f.cols);
+				return;
+			}
+			if (y % 3 === 0 && x % 4 === 0) {
+				out.ch = '.';
+				out.a = 0.08;
+				out.tone = 0;
+			}
+		},
+	};
+}
+
+/** The redaction-bypass writeup: a wall of redaction blocks, with escape tokens (~1 /, ~0 ~) leaking
+ * through the sparse cells the parser forgot to mask. A diagonal scan brightens the wall as it passes. */
+function redact(rand: () => number): Piece {
+	const LEAK = '~1/~0';
+	const seed = rand() * 100;
+	return {
+		shader(x, y, f, out) {
+			const r = hash(x + seed, y * 1.7);
+			if (r < 0.07) {
+				// a leak: an escaped reference that slipped past the filter, shown hot
+				out.ch = LEAK[(x + y * 2) % LEAK.length];
+				out.a = 0.85 + 0.15 * Math.sin(f.time * 3 + x);
+				out.tone = 6;
+				return;
+			}
+			if (r < 0.78) {
+				const scan = (x + y * 0.5 + f.time * 4) % 16 < 2;
+				out.ch = scan ? '%' : '#';
+				out.a = scan ? 0.5 : 0.18 + r * 0.22;
+				out.tone = scan ? 1 : 0;
+			}
+		},
+	};
+}
+
+const MOTIFS: Record<string, (rand: () => number) => Piece> = { eye, lattice, pulse, counter, oracle, redact, flag };
 
 /** Cover art for a post or project. `motif` comes from frontmatter: a named motif or `glyph:<text>`. */
 export function cover(canvas: HTMLCanvasElement, seed: string, motif = '', options: { target?: Element | null; dissolve?: boolean } = {}) {

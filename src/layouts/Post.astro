@@ -14,6 +14,7 @@ interface Props {
 const { post, headings, newer, older } = Astro.props;
 const { title, description, pubDate, updatedDate, tags } = post.data;
 const summary = 'summary' in post.data ? post.data.summary : undefined;
+const tldr = post.data.tldr;
 const ctf = 'ctf' in post.data ? post.data.ctf : undefined;
 // difficulty as a four-step ASCII meter: [##--]
 const DIFFICULTY = ['easy', 'medium', 'hard', 'insane'];
@@ -95,6 +96,15 @@ const section = SECTIONS[post.collection];
 				)
 			}
 		</header>
+
+		{
+			tldr && (
+				<aside class="tldr">
+					<p class="tldr-tag">TL;DR</p>
+					<p>{tldr}</p>
+				</aside>
+			)
+		}
 
 		{
 			toc.length > 2 && (
@@ -259,6 +269,29 @@ const section = SECTIONS[post.collection];
 		background: var(--bg-raised);
 		border-left: 2px solid var(--accent);
 		clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+	}
+
+	.tldr {
+		--cut: 0.9rem;
+		margin: 2rem 0 0;
+		padding: 1.1rem 1.4rem;
+		background: var(--bg-raised);
+		border-left: 2px solid var(--accent-2);
+		clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, 0 100%);
+	}
+
+	.tldr-tag {
+		margin: 0 0 0.4rem;
+		font: 700 0.75rem/1 var(--font-mono);
+		letter-spacing: 0.12em;
+		color: var(--accent-2);
+	}
+
+	.tldr p:last-child {
+		margin: 0;
+		font-size: 1rem;
+		line-height: 1.6;
+		color: var(--text-strong);
 	}
 
 	.summary div {

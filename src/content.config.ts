@@ -9,6 +9,8 @@ const post = z.object({
 	updatedDate: z.coerce.date().optional(),
 	tags: z.array(z.string()).default([]),
 	draft: z.boolean().default(false),
+	// a plain-spoken "if you read nothing else" summary, shown in a box at the top of the post
+	tldr: z.string().optional(),
 	// cover motif: eye | lattice | pulse | counter | flag | glyph:<any symbol or word>; omitted = seeded pattern
 	art: z.string().optional(),
 });

@@ -4,6 +4,7 @@ title: 'One Million Guesses: Brute-Forcing an OTP With No Rate Limit'
 description: 'An authorized black-box test on a login flow that issued a one-time password but never limited how many times you could guess it.'
 pubDate: 2026-06-27
 tags: ['pentest', 'auth', 'rate-limiting']
+tldr: "Login sent you a 6-digit code over email, then let you guess it as many times as you wanted. No lockout, no throttle, nothing. 6 digits is a million combos, which sounds like a lot until you realise a script walks the whole thing before the code even expires. So: full account takeover off a tiny missing check. Funniest part, the app sat behind Cloudflare, and people assume that means rate limiting is handled. It is not. The CDN stops floods, it has no idea 50 wrong OTPs on one account is an attack. That check has to live in the app. Rated High."
 summary:
   target: 'Meridian Portal (anonymized)'
   engagement: 'Authorized black-box web pentest'
