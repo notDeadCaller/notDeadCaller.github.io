@@ -1,8 +1,8 @@
 // Notes as a space voyage: shaded ASCII planets (the notes) orbit stars in a few systems, over a
-// parallax starfield. Scrolling flies the camera sideways; hovering a planet focuses it (ring + title)
-// and a click opens it — a sticky note for short ones, the full page for long ones. Clicking empty
-// space does nothing. Opening pauses all motion. Built on the shared ASCII engine (off-screen pause,
-// reduced motion). The git-graph list is the accessible fallback.
+// parallax starfield. Scrolling or dragging flies the camera. Hovering a planet FREEZES the whole
+// scene and draws a rotating ASCII Saturn ring over it (focus); a click then opens it — a sticky note
+// for short ones, the full page for long ones. Empty space does nothing. Built on the shared ASCII
+// engine (off-screen pause, reduced motion). The git-graph list is the accessible fallback.
 import { mount, RAMP } from './ascii';
 
 export type NoteSize = 'moon' | 'planet' | 'giant';
@@ -15,17 +15,15 @@ export type VNote = {
 	mode: 'sticky' | 'page';
 	locked?: boolean;
 };
-export type Screen = { x: number; y: number; r: number }; // viewport px
+export type Screen = { x: number; y: number; r: number };
 export const SYSTEM_SIZE = 3;
 
-// 0 muted, 1 accent, 2 accent-2, 3 text-strong, 4 hot
 const TONES = ['--muted', '--accent', '--accent-2', '--text-strong', '--hot'];
 const hash = (a: number, b: number) => {
 	const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
 	return s - Math.floor(s);
 };
 const clamp = (n: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, n));
-// base radius (cells) and spin per size; colour comes from maturity
 const SIZE = { moon: 3.5, planet: 6, giant: 9.5 } as const;
 const MAT_TONE = { seedling: 1, budding: 2, evergreen: 3 } as const;
 const SPIN = { moon: 0.5, planet: 0.32, giant: 0.2 } as const;
@@ -61,22 +59,22 @@ export function voyage(
 		};
 	});
 	const sysCount = Math.max(1, Math.ceil(notes.length / SYSTEM_SIZE));
-	let hovered: Planet | null = null;
-	let paused = false;
-	let orbitClock = 0;
+
+	let hovered: Planet | null = null; // planet under the pointer
+	let held: Planet | null = null; // pinned focus while a sticky note is open
+	let orbitClock = 0; // advances only when nothing is focused (so focus freezes the scene)
+	let ringClock = 0; // advances while a planet is focused (so the reticle keeps turning)
 	let lastT = -1;
 	let frozenCam = 0;
 	let lastLive: Live[] = [];
 	let lastCols = 1;
 	let lastRows = 1;
 	let lastAspect = 2;
-	// own pointer tracking in cell coords: the shared engine only flags "active" on move, so a touch
-	// tap would never register a hover. pointerdown here also counts, which makes tap-to-open work.
+	let worldWcells = 0;
+	// own pointer tracking (cell coords) so a touch tap registers; plus drag-to-pan
 	let px = -99;
 	let py = -99;
 	let pactive = false;
-	let worldWcells = 0;
-	// drag to pan: a horizontal drag scrolls the page (which is what moves the camera)
 	let pressed = false;
 	let dragX = 0;
 	let dragScroll = 0;
@@ -87,11 +85,10 @@ export function voyage(
 		py = ((e.clientY - rect.top) / Math.max(1, canvas.clientHeight)) * lastRows;
 		pactive = true;
 	};
-
-	const screenOf = (L: Live, f: { cols: number; rows: number }): Screen => ({
-		x: (L.sx / f.cols) * canvas.clientWidth,
-		y: (L.sy / f.rows) * canvas.clientHeight,
-		r: (L.planet.r / f.cols) * canvas.clientWidth,
+	const screenOf = (L: Live, cols: number, rows: number): Screen => ({
+		x: (L.sx / cols) * canvas.clientWidth,
+		y: (L.sy / rows) * canvas.clientHeight,
+		r: (L.planet.r / cols) * canvas.clientWidth,
 	});
 
 	const handle = mount(canvas, {
@@ -102,30 +99,30 @@ export function voyage(
 			const gap = f.cols * 0.92;
 			const sys = Array.from({ length: sysCount }, (_, i) => ({
 				wx: f.cols * 0.5 + i * gap,
-				// centres sit in the lower-middle band; the orbit is clamped below so nothing hides behind the navbar
 				wy: f.rows * (0.54 + (hash(i, 11) - 0.5) * 0.14),
 			}));
 			f.data.sys = sys;
 			f.data.worldW = (sysCount - 1) * gap;
 			f.data.live = [] as Live[];
 			f.data.suns = [] as { sx: number; sy: number }[];
-			// hand the page a stable layout for the minimap (system anchors, not live orbit positions)
 			opts.onLayout?.({
 				worldW: (sysCount - 1) * gap,
 				cols: f.cols,
-				// spread a system's planets a little on the minimap so they don't stack on the star's x
 				planets: planets.map((p, i) => ({ wx: sys[p.sys].wx + ((i % SYSTEM_SIZE) - 1) * gap * 0.14, wy: sys[p.sys].wy, note: p.note })),
 			});
 		},
 		frame(f) {
 			const dt = lastT < 0 ? 0 : f.time - lastT;
 			lastT = f.time;
-			if (!paused) orbitClock += dt;
+			// focus = pinned planet (sticky open) or the hovered one; while focused, the scene freezes
+			const focus = held ?? hovered;
+			if (!focus) orbitClock += dt;
+			if (focus) ringClock += dt;
 			f.data.clock = orbitClock;
 
 			const sys = f.data.sys as { wx: number; wy: number }[];
 			let camX: number;
-			if (paused) {
+			if (focus) {
 				camX = frozenCam;
 			} else {
 				const rect = opts.container.getBoundingClientRect();
@@ -138,7 +135,6 @@ export function voyage(
 			f.data.suns = sys.map((s) => ({ sx: s.wx - camX, sy: s.wy }));
 
 			worldWcells = f.data.worldW as number;
-			// keep orbits inside a safe vertical band, clear of the navbar (top) and the legend/hint (bottom)
 			const topSafe = f.rows * 0.16;
 			const botSafe = f.rows * 0.9;
 			const live: Live[] = [];
@@ -152,9 +148,9 @@ export function voyage(
 				const sy = s.wy + Math.sin(a) * vAmp;
 				if (sx < -planet.r - 2 || sx > f.cols + planet.r + 2) continue;
 				live.push({ planet, sx, sy });
-				if (pactive) {
+				if (pactive && !held) {
 					const dp = Math.hypot(sx - px, (sy - py) * f.aspect);
-					if (dp < planet.r + 0.6 && dp < hovD) {
+					if (dp < planet.r + 0.8 && dp < hovD) {
 						hovD = dp;
 						hov = planet;
 					}
@@ -165,10 +161,30 @@ export function voyage(
 			lastCols = f.cols;
 			lastRows = f.rows;
 			lastAspect = f.aspect;
+
+			// the ASCII Saturn ring sits on the focused planet's (now frozen) position
+			const fp = (held ?? hov) && live.find((l) => l.planet === (held ?? hov));
+			if (fp) {
+				const Rx = fp.planet.r * 1.8;
+				const Ry = Rx * 0.34;
+				const ang = ringClock * 1.1;
+				f.data.ring = {
+					sx: fp.sx,
+					sy: fp.sy,
+					Rx,
+					Ry,
+					t: ringClock,
+					nodeX: fp.sx + Math.cos(ang) * Rx,
+					nodeY: fp.sy + (Math.sin(ang) * Ry) / f.aspect,
+				};
+			} else {
+				f.data.ring = null;
+			}
+
 			if (hov !== hovered) {
 				hovered = hov;
 				const L = hov && live.find((l) => l.planet === hov);
-				opts.onHover?.(hov?.note ?? null, L ? screenOf(L, f) : null);
+				opts.onHover?.(hov?.note ?? null, L ? screenOf(L, f.cols, f.rows) : null);
 			}
 		},
 		shader(x, y, f, out) {
@@ -188,13 +204,27 @@ export function voyage(
 				}
 			}
 
-			// each system's star: a small clean white point with a soft glint, not a red blob
+			// system cores: an encrypted note sits at the centre of each system — the real thought the
+			// public ones orbit. Drawn as a pulsing red "?" star with cross rays (locked until unlocked).
 			for (const s of f.data.suns as { sx: number; sy: number }[]) {
-				const d = Math.hypot(x - s.sx, (y - s.sy) * f.aspect);
-				if (d < 1.8) {
-					out.ch = d < 0.7 ? '*' : d < 1.1 ? '+' : '.';
-					out.a = d < 0.7 ? 1 : d < 1.1 ? 0.6 : 0.3;
-					out.tone = 3;
+				const ddx = x - s.sx;
+				const ddy = (y - s.sy) * f.aspect;
+				const d = Math.hypot(ddx, ddy);
+				if (d < 3.2) {
+					const pulse = 0.65 + 0.35 * Math.sin(clock * 2 + s.sx * 0.3);
+					if (d < 1.4) {
+						out.ch = '?';
+						out.a = Math.min(1, pulse + 0.3);
+						out.tone = 4;
+					} else if (Math.abs(ddx) < 0.6 || Math.abs(ddy) < 0.8) {
+						out.ch = d < 2.2 ? '?' : '+';
+						out.a = 0.7 * pulse;
+						out.tone = 4;
+					} else if (d < 2.8 && hash(x * 1.3, y * 1.7) > 0.6) {
+						out.ch = ':';
+						out.a = 0.4 * pulse;
+						out.tone = 4;
+					}
 				}
 			}
 
@@ -219,7 +249,6 @@ export function voyage(
 				const ny = dy / p.r;
 				const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
 				if (p.note.locked && !unlocked) {
-					// a proper dark sphere (shaded, desaturated) with a faint encrypted shimmer, not noise
 					const bl = clamp(nx * -0.5 + ny * -0.55 + nz * 0.66);
 					const flick = hash(x * 2 + Math.floor(clock * 3), y * 2) > 0.9;
 					out.ch = flick ? '?' : RAMP[1 + Math.floor(bl * 4)];
@@ -227,44 +256,58 @@ export function voyage(
 					out.tone = flick ? 0 : 2;
 					continue;
 				}
-				const lit = p === hovered ? 1.18 : 1;
 				const b = clamp(nx * -0.5 + ny * -0.55 + nz * 0.66);
 				const lon = Math.atan2(nx, nz) + clock * p.spin;
 				const band = 0.5 + 0.5 * Math.sin(lon * 5 + ny * 7);
-				const shade = clamp((b * 0.82 + band * 0.18 * b) * lit);
+				const shade = clamp(b * 0.82 + band * 0.18 * b);
 				out.ch = RAMP[Math.min(RAMP.length - 1, 1 + Math.floor(shade * (RAMP.length - 1)))];
 				out.a = Math.min(1, 0.25 + 0.75 * shade);
-				out.tone = shade > 0.78 || p === hovered ? 3 : p.tone;
+				out.tone = shade > 0.78 ? 3 : p.tone;
+			}
+
+			// ASCII Saturn ring over the focused planet: a tilted ellipse of characters with a
+			// highlight sweeping round it, and a bright node orbiting — rendered on top of everything
+			const R = f.data.ring as { sx: number; sy: number; Rx: number; Ry: number; t: number; nodeX: number; nodeY: number } | null;
+			if (R) {
+				const vdx = x - R.sx;
+				const vdy = (y - R.sy) * f.aspect;
+				const e = (vdx / R.Rx) ** 2 + (vdy / R.Ry) ** 2;
+				if (Math.abs(e - 1) < 0.32) {
+					const sweep = 0.5 + 0.5 * Math.sin(Math.atan2(vdy / R.Ry, vdx / R.Rx) - R.t * 2);
+					out.ch = sweep > 0.66 ? '*' : sweep > 0.33 ? '+' : 'o';
+					out.a = 0.55 + 0.45 * sweep;
+					out.tone = 1;
+				}
+				if (Math.hypot(x - R.nodeX, (y - R.nodeY) * f.aspect) < 1.1) {
+					out.ch = 'O';
+					out.a = 1;
+					out.tone = 2;
+				}
 			}
 		},
 	});
 
-	// open the planet under the pointer at click time (computed fresh, so a touch tap has no race);
-	// empty space hits nothing and does nothing
 	const open = () => {
+		if (dragged) {
+			dragged = false;
+			return;
+		}
 		let L: Live | null = null;
 		let bd = Infinity;
 		for (const l of lastLive) {
 			const dp = Math.hypot(l.sx - px, (l.sy - py) * lastAspect);
-			if (dp < l.planet.r + 0.6 && dp < bd) {
+			if (dp < l.planet.r + 0.8 && dp < bd) {
 				bd = dp;
 				L = l;
 			}
 		}
 		if (!L) return;
 		if (L.planet.note.locked && !(opts.getUnlocked?.() ?? false)) return;
-		opts.onOpen?.(L.planet.note, screenOf(L, { cols: lastCols, rows: lastRows }));
-	};
-	const onClick = () => {
-		if (dragged) {
-			dragged = false; // a drag, not a tap: don't open
-			return;
-		}
-		open();
+		opts.onOpen?.(L.planet.note, screenOf(L, lastCols, lastRows));
 	};
 	const onDown = (e: PointerEvent) => {
 		toCell(e);
-		if (paused) return;
+		if (held) return;
 		pressed = true;
 		dragged = false;
 		dragX = e.clientX;
@@ -281,13 +324,12 @@ export function voyage(
 		const worldPx = worldWcells * cellW;
 		if (worldPx > 0) scrollTo({ top: dragScroll - dx * (span / worldPx), behavior: 'auto' });
 	};
-	const onUp = () => {
-		pressed = false;
-	};
-	canvas.addEventListener('click', onClick);
+	canvas.addEventListener('click', open);
 	canvas.addEventListener('pointerdown', onDown);
 	canvas.addEventListener('pointermove', onMove);
-	canvas.addEventListener('pointerup', onUp);
+	canvas.addEventListener('pointerup', () => {
+		pressed = false;
+	});
 	canvas.addEventListener('pointerleave', () => {
 		pactive = false;
 		pressed = false;
@@ -295,14 +337,14 @@ export function voyage(
 
 	return {
 		...handle,
-		setPaused(v: boolean) {
-			paused = v;
+		// pin focus to the hovered planet while its sticky note is open (so the scene stays frozen)
+		setHeld(v: boolean) {
+			held = v ? hovered : null;
 		},
 		destroy() {
-			canvas.removeEventListener('click', onClick);
+			canvas.removeEventListener('click', open);
 			canvas.removeEventListener('pointerdown', onDown);
 			canvas.removeEventListener('pointermove', onMove);
-			canvas.removeEventListener('pointerup', onUp);
 		},
 	};
 }

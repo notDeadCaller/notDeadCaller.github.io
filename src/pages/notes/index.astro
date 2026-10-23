@@ -69,7 +69,6 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 				<section class="voyage" data-voyage style={`height:${trackVh}vh`} aria-hidden="true">
 					<div class="viewport">
 						<canvas class="ascii sky" data-hands data-notes={JSON.stringify(sky)} />
-						<div class="hover-ring" hidden />
 						<div class="hover-label" hidden />
 						<p class="hint">scroll to drift · hover a planet to focus it · click to open · a moon pops a note open here, a planet opens its page</p>
 						<ul class="legend">
@@ -143,10 +142,9 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		const canvas = document.querySelector<HTMLCanvasElement>('canvas.sky');
 		const container = document.querySelector<HTMLElement>('.voyage');
 		const toggle = document.querySelector<HTMLButtonElement>('[data-toggle]');
-		const ring = document.querySelector<HTMLElement>('.hover-ring');
 		const label = document.querySelector<HTMLElement>('.hover-label');
 		const sticky = document.querySelector<HTMLElement>('.sticky');
-		if (!page || !canvas || !container || !toggle || !ring || !label || !sticky) return;
+		if (!page || !canvas || !container || !toggle || !label || !sticky) return;
 
 		try {
 			const saved = localStorage.getItem('notes:view');
@@ -192,14 +190,13 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 			if (!open) return;
 			open = false;
 			sticky.hidden = true;
-			handle.setPaused(false);
+			handle.setHeld(false);
 		};
 		const openSticky = (n: VNote, s: Screen) => {
 			const tpl = document.querySelector<HTMLTemplateElement>(`template[data-body="${n.id}"]`);
 			if (!tpl) return;
-			handle.setPaused(true);
+			handle.setHeld(true);
 			open = true;
-			ring.hidden = true;
 			label.hidden = true;
 			sticky.querySelector('.sticky-title')!.textContent = tpl.dataset.title ?? n.title;
 			sticky.querySelector('.sticky-meta')!.textContent = tpl.dataset.meta ?? '';
@@ -237,14 +234,10 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 			onHover: (n, s) => {
 				if (open) return;
 				if (n && s) {
-					ring.hidden = false;
-					const d = s.r * 2 + 10;
-					ring.style.cssText = `left:${s.x}px;top:${s.y}px;width:${d}px;height:${d}px`;
 					label.hidden = false;
 					label.textContent = n.title;
-					label.style.cssText = `left:${s.x}px;top:${s.y + s.r + 12}px`;
+					label.style.cssText = `left:${s.x}px;top:${s.y + s.r * 2.2 + 14}px`;
 				} else {
-					ring.hidden = true;
 					label.hidden = true;
 				}
 			},
@@ -334,16 +327,7 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		height: 100%;
 	}
 
-	/* focus ring + title appear only on a hovered planet */
-	.hover-ring {
-		position: fixed;
-		z-index: 12;
-		transform: translate(-50%, -50%);
-		border: 1px solid var(--accent);
-		border-radius: 50%;
-		box-shadow: 0 0 12px 1px color-mix(in srgb, var(--accent) 60%, transparent);
-		pointer-events: none;
-	}
+	/* the hovered planet title; the focus ring itself is drawn in ASCII on the canvas */
 	.hover-label {
 		position: fixed;
 		z-index: 12;
