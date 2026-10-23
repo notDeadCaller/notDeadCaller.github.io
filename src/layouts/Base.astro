@@ -155,6 +155,30 @@ const CSP = [
 				if (clock) clock.textContent = format.format(new Date());
 			};
 			document.addEventListener('astro:page-load', tick);
+
+			// pixel hands (public/cursors) with their hotspots: [data-hands] art starts on the pointing one,
+			// and each click picks another
+			const HANDS = [
+				['point', 11, 3],
+				['palm', 17, 15],
+				['grab', 15, 13],
+				['peace', 7, 3],
+				['gun', 31, 11],
+			] as const;
+			document.addEventListener('astro:page-load', () => {
+				const areas = document.querySelectorAll<HTMLElement>('[data-hands]');
+				if (!areas.length || !matchMedia('(pointer: fine)').matches) return;
+				// fetch them all now so a swap never flashes the fallback
+				for (const [name] of HANDS) new Image().src = `/cursors/${name}.svg`;
+				for (const area of areas) {
+					let hand = 0;
+					area.addEventListener('pointerdown', () => {
+						hand = (hand + 1 + Math.floor(Math.random() * (HANDS.length - 1))) % HANDS.length;
+						const [name, x, y] = HANDS[hand];
+						area.style.cursor = `url('/cursors/${name}.svg') ${x} ${y}, pointer`;
+					});
+				}
+			});
 			setInterval(tick, 15000);
 		</script>
 	</body>

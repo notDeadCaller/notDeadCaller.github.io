@@ -4,7 +4,7 @@ import Base from '../layouts/Base.astro';
 ---
 
 <Base title="Page not found" description="This page does not exist.">
-	<div class="lost-art"><Ascii art="wordmark" text="404" /></div>
+	<div class="lost-art" data-hands><Ascii art="wordmark" text="404" /></div>
 	<div class="lost">
 		<h1>Page not found</h1>
 		<p>The page you are looking for does not exist or has moved.</p>
@@ -16,7 +16,6 @@ import Base from '../layouts/Base.astro';
 	.lost-art {
 		height: clamp(12rem, 30vw, 22rem);
 		margin-inline: calc(var(--gutter) * -1);
-		cursor: crosshair;
 	}
 
 	.lost {

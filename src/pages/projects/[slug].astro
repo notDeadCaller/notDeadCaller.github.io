@@ -18,7 +18,7 @@ const strike = (text: string) =>
 ---
 
 <Base title={title} description={description}>
-	<div class="project-hero"><Ascii art="cover" seed={project.id} motif={art} dissolve /></div>
+	<div class="project-hero" data-hands><Ascii art="cover" seed={project.id} motif={art} dissolve /></div>
 
 	<article class="case">
 		<header class="case-head">
@@ -70,7 +70,6 @@ const strike = (text: string) =>
 		position: relative;
 		height: clamp(12rem, 28vw, 22rem);
 		margin-inline: calc(var(--gutter) * -1);
-		cursor: crosshair;
 	}
 
 	.case {

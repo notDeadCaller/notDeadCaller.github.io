@@ -18,7 +18,7 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 <Base schema={website}>
 	<section class="hero">
 		<h1 class="sr-only">{SITE.title}</h1>
-		<div class="hero-art"><Ascii art="wordmark" text="h3770 fr13nd" flip={SITE.title} dissolve /></div>
+		<div class="hero-art" data-hands><Ascii art="wordmark" text="h3770 fr13nd" flip={SITE.title} dissolve /></div>
 	</section>
 
 	<section class="intro">
@@ -67,27 +67,9 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 	import { track } from '../lib/analytics';
 	import { portrait, portraitMorph } from '../lib/portrait';
 
-	// pixel hands for the hero cursor (public/cursors), with their hotspots; each click picks another
-	const HANDS = [
-		['point', 11, 3],
-		['palm', 17, 15],
-		['grab', 15, 13],
-		['peace', 7, 3],
-		['gun', 31, 11],
-	] as const;
-
 	document.addEventListener('astro:page-load', () => {
-		const hero = document.querySelector<HTMLElement>('.hero-art');
-		if (hero) {
-			// fetch them all now so a swap never flashes the fallback
-			for (const [name] of HANDS) new Image().src = `/cursors/${name}.svg`;
-			let hand = 0;
-			hero.addEventListener('pointerdown', () => {
-				hand = (hand + 1 + Math.floor(Math.random() * (HANDS.length - 1))) % HANDS.length;
-				const [name, x, y] = HANDS[hand];
-				hero.style.cursor = `url('/cursors/${name}.svg') ${x} ${y}, pointer`;
-			});
-		}
+		// each click on the wordmark swaps the word (src/lib/art.ts)
+		document.querySelector('.hero-art')?.addEventListener('pointerdown', () => track('hero_flip'));
 
 		const still = document.querySelector<HTMLCanvasElement>('canvas[data-portrait]');
 		const wrap = document.querySelector<HTMLElement>('.intro-face');
@@ -145,7 +127,6 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 	.hero-art {
 		position: relative;
 		height: clamp(15rem, 42vw, 34rem);
-		cursor: url('/cursors/point.svg') 11 3, pointer;
 	}
 
 	.intro {
