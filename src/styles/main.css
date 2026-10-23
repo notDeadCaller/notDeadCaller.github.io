@@ -196,13 +196,13 @@ img {
 	}
 
 
-	/* the interactive ASCII art: open palm to grab, fingers splay on the click */
+	/* the interactive ASCII art: splayed fingers to grab, palm flat on the click */
 	[data-hands] {
-		cursor: url('/cursors/palm.svg') 9 17, grab;
+		cursor: url('/cursors/splay.svg') 14 15, grab;
 	}
 
 	[data-hands]:active {
-		cursor: url('/cursors/splay.svg') 14 15, grabbing;
+		cursor: url('/cursors/palm.svg') 9 17, grabbing;
 	}
 
 	/* typing stays a caret; disabled stays blocked */
