@@ -18,7 +18,7 @@ const projects = (await getCollection('projects', ({ data }) => data.featured)).
 <Base schema={website}>
 	<section class="hero">
 		<h1 class="sr-only">{SITE.title}</h1>
-		<div class="hero-art"><Ascii art="wordmark" text={SITE.title} flip="h3770 fr13nd" dissolve /></div>
+		<div class="hero-art"><Ascii art="wordmark" text="h3770 fr13nd" flip={SITE.title} dissolve /></div>
 	</section>
 
 	<section class="intro">
