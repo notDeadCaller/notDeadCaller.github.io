@@ -167,12 +167,17 @@ img {
    and other touch screens never fetch the images or apply the rules. */
 @media (pointer: fine) {
 	/* Site-wide pixel-glove cursor language (public/cursors): one gesture per action.
-	   drag = idle/default, hook = text, point = clickable, palm = over the grabbable ASCII
-	   art, splay = clicking it. Image cursors carry a keyword
+	   drag = idle, fist = pressing empty background, hook = text, point = clickable,
+	   splay = over the grabbable ASCII art, palm = clicking it. Image cursors carry a keyword
 	   fallback. The interactive rules use !important so a component's own cursor:pointer can't
 	   win; the art's :active rule is more specific, so a click still changes the cursor. */
 	html {
 		cursor: url('/cursors/drag.svg') 3 2, auto;
+	}
+
+	/* pressing empty background: grab the void */
+	html:active {
+		cursor: url('/cursors/fist.svg') 10 13, grabbing;
 	}
 
 	/* text: readable, selectable copy. Block elements only, so an inline link keeps its own cursor
