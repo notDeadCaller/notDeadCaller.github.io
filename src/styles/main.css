@@ -163,9 +163,36 @@ img {
 	border-bottom: 1px solid var(--line);
 }
 
-/* clickable ASCII art: a pixel-hand cursor, swapped on each click (Base.astro) */
+/* Site-wide pixel-glove cursors (public/cursors). Default hand everywhere; the pointing hand on
+   anything clickable; a caret stays where text is typed. !important beats components' own
+   cursor:pointer, but not the inline cursor the art swaps in on click (that's set on the element). */
+html {
+	cursor: url('/cursors/drag.svg') 3 2, auto;
+}
+
+a,
+button,
+summary,
+label[for],
+[role='button'],
+[tabindex]:not([tabindex='-1']) {
+	cursor: url('/cursors/point.svg') 4 2, pointer !important;
+}
+
+input:is([type='text'], [type='search'], [type='email'], [type='url'], [type='password'], [type='number'], [type='tel']),
+textarea,
+[contenteditable='true'] {
+	cursor: text !important;
+}
+
+:disabled,
+[aria-disabled='true'] {
+	cursor: not-allowed !important;
+}
+
+/* clickable ASCII art: starts on the pointing hand, then the script swaps a random one in per click */
 [data-hands] {
-	cursor: url('/cursors/point.svg') 13 3, pointer;
+	cursor: url('/cursors/point.svg') 4 2, pointer;
 }
 
 /* wordmark: a yellow highlight block wipes in on hover with a cyan misregistered copy,
