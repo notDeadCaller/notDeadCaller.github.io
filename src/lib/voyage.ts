@@ -198,7 +198,8 @@ export function voyage(
 				[0.12, 0.986],
 				[0.35, 0.99],
 			] as const) {
-				const h = hash((x + camX * depth) * 1.1, y * 1.9);
+				const off = Math.round(camX * depth);
+				const h = hash((x + off) * 1.1, y * 1.9);
 				if (h > thr) {
 					out.ch = h > thr + 0.004 ? '+' : '.';
 					out.a = 0.1 + 0.12 * (0.5 + 0.5 * Math.sin(clock * 1.3 + h * 20));
@@ -206,28 +207,25 @@ export function voyage(
 				}
 			}
 
-			// system cores: an encrypted note sits at the centre of each system — the real thought the
-			// public ones orbit. Drawn as a round pulsing red "?" star: a bright core in a dotted halo ring.
+			// system cores: the encrypted note at the heart of each system — the thought the public
+			// ones orbit. A red "?" sphere: circular and stable under scroll, like the other planets.
 			for (const s of f.data.suns as { sx: number; sy: number }[]) {
-				const ddx = x - s.sx;
-				const ddy = (y - s.sy) * f.aspect;
-				const d = Math.hypot(ddx, ddy);
-				if (d < 3.0) {
-					const pulse = 0.6 + 0.4 * Math.sin(clock * 2 + s.sx * 0.3);
-					if (d < 1.1) {
-						out.ch = '?';
-						out.a = Math.min(1, pulse + 0.35);
-						out.tone = 4;
-					} else if (Math.abs(d - 2.2) < 0.6) {
-						out.ch = hash(Math.floor(x * 0.9), Math.floor(y)) > 0.8 ? '*' : 'o';
-						out.a = 0.35 + 0.4 * pulse;
-						out.tone = 4;
-					} else if (d < 1.8 && hash(x * 1.7, y * 1.3) > 0.62) {
-						out.ch = ':';
-						out.a = 0.22 * pulse;
-						out.tone = 4;
-					}
-				}
+				const dx = x - s.sx;
+				const dy = (y - s.sy) * f.aspect;
+				const d = Math.hypot(dx, dy);
+				const R = 4.4 * scale;
+				if (d > R) continue;
+				const nx = dx / R;
+				const ny = dy / R;
+				const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
+				const b = clamp(nx * -0.5 + ny * -0.55 + nz * 0.66);
+				const pulse = 0.82 + 0.18 * Math.sin(clock * 2 + s.sx * 0.3);
+				const lon = Math.atan2(nx, nz) + clock * 0.15;
+				// "?" glyphs ride the surface: one at the sub-solar point, the rest on slow meridians
+				const mark = d < 1.3 || 0.5 + 0.5 * Math.sin(lon * 4 + ny * 3) > 0.82;
+				out.ch = mark ? '?' : RAMP[Math.min(RAMP.length - 1, 1 + Math.floor(b * (RAMP.length - 1) * 0.85))];
+				out.a = Math.min(1, (0.28 + 0.6 * b) * pulse);
+				out.tone = 4;
 			}
 
 			let bestZ = Infinity;
