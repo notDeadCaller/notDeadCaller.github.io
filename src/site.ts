@@ -37,7 +37,8 @@ export async function getPosts(section: Section): Promise<Post[]> {
 
 export async function getFeed(): Promise<Post[]> {
 	const posts = [...(await getPosts('writeups')), ...(await getPosts('notes'))];
-	return posts.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+	// demo notes exist to show off the Notes map; keep them off the homepage and out of RSS
+	return posts.filter((p) => !p.data.tags.includes('demo')).sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
 }
 
 export const postUrl = (post: Post) => `/${post.collection}/${post.id}/`;
