@@ -232,6 +232,23 @@ export function voyage(
 				}
 			}
 
+			// pulsing corona behind a focused encrypted core: faint shockwave rings breathing outward.
+			// drawn before the spheres so the orbiting notes occlude it — it glows behind them, not over them
+			const C = f.data.corona as { sx: number; sy: number; R: number; t: number } | null;
+			if (C) {
+				const od = Math.hypot(x - C.sx, (y - C.sy) * f.aspect) - C.R;
+				const reach = C.R * 3.8;
+				if (od > 0 && od < reach) {
+					const wave = 0.5 + 0.5 * Math.sin(od * 0.9 - C.t * 4);
+					const s = wave * (1 - od / reach) * 1.1;
+					if (s > 0.05) {
+						out.ch = s > 0.6 ? 'o' : s > 0.33 ? ':' : '.';
+						out.a = Math.min(1, s);
+						out.tone = 4;
+					}
+				}
+			}
+
 			// encrypted cores: a red "?" sphere at each system centre. Locked = "?" meridians; once
 			// unlocked this session, the surface calms and a cyan node lights the core.
 			for (const L of f.data.live as Live[]) {
@@ -299,24 +316,6 @@ export function voyage(
 					out.ch = 'O';
 					out.a = 1;
 					out.tone = 2;
-				}
-			}
-
-			// pulsing corona around a focused encrypted core: faint shockwave rings breathing outward
-			const C = f.data.corona as { sx: number; sy: number; R: number; t: number } | null;
-			if (C) {
-				const cdx = x - C.sx;
-				const cdy = (y - C.sy) * f.aspect;
-				const od = Math.hypot(cdx, cdy) - C.R;
-				const reach = C.R * 3.8;
-				if (od > 0 && od < reach) {
-					const wave = 0.5 + 0.5 * Math.sin(od * 0.9 - C.t * 4);
-					const s = wave * (1 - od / reach) * 1.1;
-					if (s > 0.05) {
-						out.ch = s > 0.6 ? 'o' : s > 0.33 ? ':' : '.';
-						out.a = Math.min(1, s);
-						out.tone = 4;
-					}
 				}
 			}
 		},
