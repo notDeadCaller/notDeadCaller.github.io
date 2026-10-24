@@ -226,8 +226,14 @@ export function voyage(
 				const off = Math.round(camX * depth);
 				const h = hash((x + off) * 1.1, y * 1.9);
 				if (h > thr) {
+					// each star twinkles on its own phase + speed, biased by a slow spatial wave so
+					// neighbours breathe together in drifting clusters — never one global in/out blink
+					const ph = hash((x + off) * 3.7 + 2, y * 2.3 + 4) * 6.283;
+					const spd = 0.7 + hash((x + off) * 0.7 + 1, y * 1.3 + 3) * 1.4;
+					const cluster = Math.sin((x + off) * 0.11 + y * 0.085);
+					const tw = 0.5 + 0.5 * Math.sin(clock * spd + ph + cluster * 1.4);
 					out.ch = h > thr + 0.004 ? '+' : '.';
-					out.a = 0.1 + 0.12 * (0.5 + 0.5 * Math.sin(clock * 1.3 + h * 20));
+					out.a = 0.07 + 0.23 * tw;
 					out.tone = 0;
 				}
 			}
