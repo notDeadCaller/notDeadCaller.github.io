@@ -54,5 +54,7 @@ export default defineConfig({
 		fontsource('Big Shoulders', '--font-shoulders', ['sans-serif'], ['500 900']),
 		fontsource('Source Serif 4', '--font-serif', ['serif'], ['400 700'], true),
 		fontsource('Fragment Mono', '--font-fragment', ['monospace'], [400]),
+		// note-card titles only (Fallout 4's Pip-Boy face)
+		fontsource('Roboto Condensed', '--font-condensed', ['sans-serif'], [500]),
 	],
 });
