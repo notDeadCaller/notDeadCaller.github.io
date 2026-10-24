@@ -185,7 +185,11 @@ export function voyage(
 
 			// the ASCII Saturn ring sits on the focused body's (now frozen) position
 			const fp = (held ?? hov) && live.find((l) => l.planet === (held ?? hov));
-			if (fp) {
+			if (fp && fp.planet.core) {
+				// an encrypted core gets a pulsing corona (star-like aura) instead of the Saturn ring
+				f.data.ring = null;
+				f.data.corona = { sx: fp.sx, sy: fp.sy, R: fp.planet.r, t: ringClock };
+			} else if (fp) {
 				const Rx = fp.planet.r * 1.7 + 2.4;
 				const Ry = Rx * 0.34;
 				const ang = ringClock * 1.1;
@@ -198,8 +202,10 @@ export function voyage(
 					nodeX: fp.sx + Math.cos(ang) * Rx,
 					nodeY: fp.sy + (Math.sin(ang) * Ry) / f.aspect,
 				};
+				f.data.corona = null;
 			} else {
 				f.data.ring = null;
+				f.data.corona = null;
 			}
 
 			if (hov !== hovered) {
@@ -293,6 +299,24 @@ export function voyage(
 					out.ch = 'O';
 					out.a = 1;
 					out.tone = 2;
+				}
+			}
+
+			// pulsing corona around a focused encrypted core: faint shockwave rings breathing outward
+			const C = f.data.corona as { sx: number; sy: number; R: number; t: number } | null;
+			if (C) {
+				const cdx = x - C.sx;
+				const cdy = (y - C.sy) * f.aspect;
+				const od = Math.hypot(cdx, cdy) - C.R;
+				const reach = C.R * 3.8;
+				if (od > 0 && od < reach) {
+					const wave = 0.5 + 0.5 * Math.sin(od * 0.9 - C.t * 4);
+					const s = wave * (1 - od / reach) * 1.1;
+					if (s > 0.05) {
+						out.ch = s > 0.6 ? 'o' : s > 0.33 ? ':' : '.';
+						out.a = Math.min(1, s);
+						out.tone = 4;
+					}
 				}
 			}
 		},

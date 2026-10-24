@@ -88,14 +88,16 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 					<div class="viewport">
 						<canvas class="ascii sky" data-hands data-notes={JSON.stringify(sky)} data-cores={JSON.stringify(cores)} data-vault={JSON.stringify(vault)} />
 						<div class="hover-label" hidden />
-						<p class="hint">scroll to drift · hover to focus · click to open · the red core of each system is an encrypted note</p>
-						<ul class="legend">
-							<li><span class="dot moon" /> moon — a quick note (opens here)</li>
-							<li><span class="dot planet" /> planet — a longer note (opens here)</li>
-							<li><span class="dot giant" /> big planet — a full piece (its own page)</li>
-							<li><span class="dot core" /> red core — an encrypted note (needs a passphrase)</li>
-							<li class="sep">colour = how settled the idea is: <b class="s">seedling</b> · <b class="b">budding</b> · <b class="e">evergreen</b></li>
-						</ul>
+						<button class="info-btn" type="button" data-info aria-expanded="false" aria-controls="legend-pop" aria-label="Key — what the planets mean">i</button>
+						<div class="info-pop" id="legend-pop" data-info-pop hidden>
+							<ul class="legend">
+								<li><span class="dot moon" /> moon — a quick note (opens here)</li>
+								<li><span class="dot planet" /> planet — a longer note (opens here)</li>
+								<li><span class="dot giant" /> big planet — a full piece (its own page)</li>
+								<li><span class="dot core" /> red core — an encrypted note (needs a passphrase)</li>
+								<li class="sep">colour = how settled the idea is: <b class="s">seedling</b> · <b class="b">budding</b> · <b class="e">evergreen</b></li>
+							</ul>
+						</div>
 					</div>
 				</section>
 
@@ -211,6 +213,24 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		toggle.textContent = page.dataset.view === 'map' ? 'list view' : 'map view';
 		toggle.addEventListener('click', () => setView(page.dataset.view === 'map' ? 'list' : 'map'));
 
+		// legend is behind an (i) button so it stays out of the way; click outside / Escape closes it
+		const infoBtn = document.querySelector<HTMLButtonElement>('[data-info]');
+		const infoPop = document.querySelector<HTMLElement>('[data-info-pop]');
+		if (infoBtn && infoPop) {
+			const setInfo = (v: boolean) => {
+				infoPop.hidden = !v;
+				infoBtn.setAttribute('aria-expanded', String(v));
+			};
+			infoBtn.addEventListener('click', (e) => {
+				e.stopPropagation();
+				setInfo(infoPop.hidden);
+			});
+			document.addEventListener('click', (e) => {
+				if (!infoPop.hidden && !infoPop.contains(e.target as Node)) setInfo(false);
+			});
+			addEventListener('keydown', (e) => e.key === 'Escape' && setInfo(false));
+		}
+
 		const notes = JSON.parse(canvas.dataset.notes ?? '[]') as VNote[];
 		const coreData = JSON.parse(canvas.dataset.cores ?? '[]') as { sys: number; id: string; label: string }[];
 		const vault = JSON.parse(canvas.dataset.vault ?? '[]') as Vault[];
@@ -242,13 +262,28 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 			mmView.style.width = `${w * 100}%`;
 		};
 		addEventListener('scroll', syncView, { passive: true });
-		minimap?.addEventListener('click', (e) => {
-			const r = minimap.getBoundingClientRect();
-			const f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-			const vr = container.getBoundingClientRect();
-			const top = vr.top + scrollY;
-			scrollTo({ top: top + f * (container.offsetHeight - innerHeight), behavior: 'smooth' });
-		});
+		// click-and-hold to scrub the camera: seek to the pointer, then follow it while held
+		if (minimap) {
+			let scrub = false;
+			const seek = (clientX: number) => {
+				const r = minimap.getBoundingClientRect();
+				const f = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+				const vr = container.getBoundingClientRect();
+				const top = vr.top + scrollY;
+				scrollTo({ top: top + f * (container.offsetHeight - innerHeight), behavior: 'auto' });
+			};
+			minimap.addEventListener('pointerdown', (e) => {
+				scrub = true;
+				minimap.setPointerCapture(e.pointerId);
+				seek(e.clientX);
+			});
+			minimap.addEventListener('pointermove', (e) => scrub && seek(e.clientX));
+			const end = () => {
+				scrub = false;
+			};
+			minimap.addEventListener('pointerup', end);
+			minimap.addEventListener('pointercancel', end);
+		}
 
 		const placeCard = (s: Screen | null) => {
 			sticky.hidden = false;
@@ -450,11 +485,11 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 
 	.notes-page[data-view='map'] .list-view { display: none; }
 	.notes-page[data-view='list'] .voyage,
-	.notes-page[data-view='list'] .hint,
-	.notes-page[data-view='list'] .legend,
+	.notes-page[data-view='list'] .info-btn,
+	.notes-page[data-view='list'] .info-pop,
 	.notes-page[data-view='list'] .minimap { display: none !important; }
 
-	/* minimap: overview of every system + a window for the camera; click to jump */
+	/* minimap: overview of every system + a window for the camera; click-and-hold to scrub */
 	.minimap {
 		position: fixed;
 		right: var(--gutter);
@@ -465,6 +500,12 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		background: color-mix(in srgb, var(--bg-raised) 85%, transparent);
 		border: 1px solid var(--line);
 		cursor: pointer;
+		touch-action: none;
+	}
+	/* grabbable, so it speaks the site's glove-cursor language (splay to grab, palm on press) */
+	@media (pointer: fine) {
+		.minimap { cursor: url('/cursors/splay.svg') 14 15, grab; }
+		.minimap:active { cursor: url('/cursors/palm.svg') 9 17, grabbing; }
 	}
 	.mm-dots { position: absolute; inset: 0; }
 	.mm-dot {
@@ -524,31 +565,38 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		pointer-events: none;
 	}
 
-	.hint {
-		position: fixed;
-		left: 0;
-		right: 0;
-		bottom: 1.1rem;
-		z-index: 11;
-		text-align: center;
-		margin: 0;
-		padding: 0 1rem;
-		font: 0.72rem var(--font-mono);
-		color: var(--muted);
-		pointer-events: none;
-	}
-
-	.legend {
+	/* (i) key: a small fixed button bottom-left; the legend lives in a popup above it */
+	.info-btn {
 		position: fixed;
 		left: var(--gutter);
 		bottom: 2.6rem;
-		z-index: 11;
+		z-index: 12;
+		width: 1.9rem;
+		height: 1.9rem;
+		font: italic 1rem var(--font-mono);
+		color: var(--muted);
+		background: color-mix(in srgb, var(--bg-raised) 85%, transparent);
+		border: 1px solid var(--line);
+		border-radius: 50%;
+	}
+	.info-btn:is(:hover, :focus-visible, [aria-expanded='true']) { color: var(--accent); border-color: var(--accent); }
+	.info-pop {
+		position: fixed;
+		left: var(--gutter);
+		bottom: 5rem;
+		z-index: 12;
+		max-width: min(22rem, calc(100vw - 2 * var(--gutter)));
+		padding: 0.85rem 1rem;
+		background: var(--bg-raised);
+		border: 1px solid var(--line);
+	}
+
+	.legend {
 		margin: 0;
 		padding: 0;
 		list-style: none;
 		font: 0.72rem var(--font-mono);
 		color: var(--muted);
-		pointer-events: none;
 	}
 	.legend li { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.2rem; }
 	.legend .sep { margin-top: 0.3rem; }
@@ -697,6 +745,5 @@ rows.push({ g: '|', kind: 'rail' }, { g: '*', kind: 'root' });
 		.grow { grid-template-columns: 3.5ch 1fr; }
 		.sha { display: none; }
 		.stage { grid-column: 2; justify-self: start; font-size: 0.75rem; }
-		.legend { display: none; }
 	}
 </style>
